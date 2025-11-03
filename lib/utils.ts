@@ -13,7 +13,7 @@ export function formatCurrency(amount: number, currency: string = "KES"): string
 }
 
 export function formatDate(date: Date | string): string {
-  return new Intl.DateFormat("en-KE", {
+  return new Intl.DateTimeFormat("en-KE", {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -21,7 +21,7 @@ export function formatDate(date: Date | string): string {
 }
 
 export function formatDateTime(date: Date | string): string {
-  return new Intl.DateFormat("en-KE", {
+  return new Intl.DateTimeFormat("en-KE", {
     year: "numeric",
     month: "short",
     day: "numeric",

@@ -49,3 +49,18 @@ export function useUpdateProduct() {
     },
   });
 }
+
+export function useDeleteProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => mockProductsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      toast.success("Product deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete product");
+    },
+  });
+}
