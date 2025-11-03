@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Supplier, CreateSupplierDto } from "@/lib/types";
-import { useCreateSupplier, useUpdateSupplier } from "@/hooks/use-suppliers";
+import { Customer, CreateCustomerDto } from "@/lib/types";
+import { useCreateCustomer, useUpdateCustomer } from "@/hooks/use-customers";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 
-const supplierSchema = z.object({
+const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
   contactPerson: z.string().min(1, "Contact person is required"),
   email: z.string().email("Invalid email address"),
@@ -47,27 +47,27 @@ const supplierSchema = z.object({
   status: z.enum(["active", "inactive"]),
 });
 
-type SupplierFormData = z.infer<typeof supplierSchema>;
+type CustomerFormData = z.infer<typeof customerSchema>;
 
-interface SupplierFormDialogProps {
+interface CustomerFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  supplier?: Supplier;
+  customer?: Customer;
   viewOnly?: boolean;
 }
 
-export function SupplierFormDialog({
+export function CustomerFormDialog({
   open,
   onOpenChange,
-  supplier,
+  customer,
   viewOnly = false,
-}: SupplierFormDialogProps) {
-  const isEditing = !!supplier;
-  const createSupplier = useCreateSupplier();
-  const updateSupplier = useUpdateSupplier();
+}: CustomerFormDialogProps) {
+  const isEditing = !!customer;
+  const createCustomer = useCreateCustomer();
+  const updateCustomer = useUpdateCustomer();
 
-  const form = useForm<SupplierFormData>({
-    resolver: zodResolver(supplierSchema),
+  const form = useForm<CustomerFormData>({
+    resolver: zodResolver(customerSchema),
     defaultValues: {
       name: "",
       contactPerson: "",
@@ -84,19 +84,19 @@ export function SupplierFormDialog({
   });
 
   useEffect(() => {
-    if (supplier) {
+    if (customer) {
       form.reset({
-        name: supplier.name,
-        contactPerson: supplier.contactPerson,
-        email: supplier.email,
-        phone: supplier.phone,
-        address: supplier.address,
-        city: supplier.city,
-        country: supplier.country,
-        pin: supplier.pin || "",
-        paymentTerms: supplier.paymentTerms,
-        creditLimit: supplier.creditLimit,
-        status: supplier.status,
+        name: customer.name,
+        contactPerson: customer.contactPerson,
+        email: customer.email,
+        phone: customer.phone,
+        address: customer.address,
+        city: customer.city,
+        country: customer.country,
+        pin: customer.pin || "",
+        paymentTerms: customer.paymentTerms,
+        creditLimit: customer.creditLimit,
+        status: customer.status,
       });
     } else {
       form.reset({
@@ -113,22 +113,22 @@ export function SupplierFormDialog({
         status: "active",
       });
     }
-  }, [supplier, form]);
+  }, [customer, form]);
 
-  const onSubmit = async (data: SupplierFormData) => {
+  const onSubmit = async (data: CustomerFormData) => {
     try {
-      const supplierData: CreateSupplierDto = {
+      const customerData: CreateCustomerDto = {
         ...data,
         pin: data.pin || undefined,
       };
 
       if (isEditing) {
-        await updateSupplier.mutateAsync({
-          id: supplier.id,
-          data: supplierData,
+        await updateCustomer.mutateAsync({
+          id: customer.id,
+          data: customerData,
         });
       } else {
-        await createSupplier.mutateAsync(supplierData);
+        await createCustomer.mutateAsync(customerData);
       }
 
       onOpenChange(false);
@@ -139,76 +139,76 @@ export function SupplierFormDialog({
     }
   };
 
-  const isSubmitting = createSupplier.isPending || updateSupplier.isPending;
+  const isSubmitting = createCustomer.isPending || updateCustomer.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {viewOnly ? "Supplier Details" : isEditing ? "Edit Supplier" : "Add New Supplier"}
+            {viewOnly ? "Customer Details" : isEditing ? "Edit Customer" : "Add New Customer"}
           </DialogTitle>
           <DialogDescription>
             {viewOnly
-              ? "View supplier information"
+              ? "View customer information"
               : isEditing
-              ? "Update supplier information"
-              : "Add a new supplier to your system"}
+              ? "Update customer information"
+              : "Add a new customer to your system"}
           </DialogDescription>
         </DialogHeader>
 
-        {viewOnly && supplier ? (
+        {viewOnly && customer ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Name</p>
-                <p className="text-sm">{supplier.name}</p>
+                <p className="text-sm">{customer.name}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Contact Person</p>
-                <p className="text-sm">{supplier.contactPerson}</p>
+                <p className="text-sm">{customer.contactPerson}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Email</p>
-                <p className="text-sm">{supplier.email}</p>
+                <p className="text-sm">{customer.email}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Phone</p>
-                <p className="text-sm">{supplier.phone}</p>
+                <p className="text-sm">{customer.phone}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-sm font-medium text-muted-foreground">Address</p>
-                <p className="text-sm">{supplier.address}</p>
+                <p className="text-sm">{customer.address}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">City</p>
-                <p className="text-sm">{supplier.city}</p>
+                <p className="text-sm">{customer.city}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Country</p>
-                <p className="text-sm">{supplier.country}</p>
+                <p className="text-sm">{customer.country}</p>
               </div>
-              {supplier.pin && (
+              {customer.pin && (
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">PIN</p>
-                  <p className="text-sm">{supplier.pin}</p>
+                  <p className="text-sm">{customer.pin}</p>
                 </div>
               )}
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Payment Terms</p>
-                <p className="text-sm">{supplier.paymentTerms} days</p>
+                <p className="text-sm">{customer.paymentTerms} days</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Credit Limit</p>
-                <p className="text-sm">{formatCurrency(supplier.creditLimit)}</p>
+                <p className="text-sm">{formatCurrency(customer.creditLimit)}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Balance</p>
-                <p className="text-sm">{formatCurrency(supplier.balance)}</p>
+                <p className="text-sm">{formatCurrency(customer.balance)}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <p className="text-sm capitalize">{supplier.status}</p>
+                <p className="text-sm capitalize">{customer.status}</p>
               </div>
             </div>
           </div>
@@ -221,9 +221,9 @@ export function SupplierFormDialog({
                   name="name"
                   render={({ field }) => (
                     <FormItem className="col-span-2">
-                      <FormLabel>Supplier Name *</FormLabel>
+                      <FormLabel>Customer Name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="ABC Suppliers Ltd" {...field} />
+                        <Input placeholder="XYZ Corporation" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -237,7 +237,7 @@ export function SupplierFormDialog({
                     <FormItem>
                       <FormLabel>Contact Person *</FormLabel>
                       <FormControl>
-                        <Input placeholder="John Doe" {...field} />
+                        <Input placeholder="Jane Smith" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -265,7 +265,7 @@ export function SupplierFormDialog({
                     <FormItem className="col-span-2">
                       <FormLabel>Email *</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="contact@supplier.com" {...field} />
+                        <Input type="email" placeholder="contact@customer.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -279,7 +279,7 @@ export function SupplierFormDialog({
                     <FormItem className="col-span-2">
                       <FormLabel>Address *</FormLabel>
                       <FormControl>
-                        <Input placeholder="123 Main Street" {...field} />
+                        <Input placeholder="456 Business Avenue" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -405,7 +405,7 @@ export function SupplierFormDialog({
                       {isEditing ? "Updating..." : "Creating..."}
                     </>
                   ) : (
-                    <>{isEditing ? "Update Supplier" : "Create Supplier"}</>
+                    <>{isEditing ? "Update Customer" : "Create Customer"}</>
                   )}
                 </Button>
               </DialogFooter>
