@@ -97,3 +97,59 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Print styles for reports */
+@media print {
+  /* Hide elements with print:hidden class */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Show elements with print:block class */
+  .print\:block {
+    display: block !important;
+  }
+
+  /* Remove page breaks inside tables */
+  table,
+  tr,
+  td {
+    page-break-inside: avoid;
+  }
+
+  /* Ensure proper margins for printing */
+  @page {
+    margin: 1cm;
+  }
+
+  /* Remove shadows and backgrounds for print */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Ensure text is black for better printing */
+  * {
+    color: black !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Keep table borders */
+  table,
+  th,
+  td {
+    border: 1px solid #ddd !important;
+  }
+
+  /* Keep important colored text for reports */
+  .text-green-600,
+  .text-yellow-600,
+  .text-orange-600,
+  .text-red-600,
+  .text-red-700 {
+    color: inherit !important;
+    font-weight: bold !important;
+  }
+}
