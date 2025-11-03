@@ -603,6 +603,26 @@ export const mockSettingsApi = {
     };
     return mockDataStore.companySettings;
   },
+
+  updateTaxSettings: async (data: Partial<typeof mockDataStore.taxSettings>) => {
+    await delay(400);
+    mockDataStore.taxSettings = {
+      ...mockDataStore.taxSettings,
+      ...data,
+      updatedAt: new Date(),
+    };
+    return mockDataStore.taxSettings;
+  },
+
+  updateInvoiceSettings: async (data: Partial<typeof mockDataStore.invoiceSettings>) => {
+    await delay(400);
+    mockDataStore.invoiceSettings = {
+      ...mockDataStore.invoiceSettings,
+      ...data,
+      updatedAt: new Date(),
+    };
+    return mockDataStore.invoiceSettings;
+  },
 };
 
 // ============================================
