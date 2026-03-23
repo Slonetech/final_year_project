@@ -4,7 +4,9 @@ import {
   CreateProductDto, UpdateProductDto, CreateInvoiceDto, CreatePaymentDto,
   CreateAccountDto, DashboardKPIs, RecentTransaction, TopCustomer, TopProduct,
   SalesChartData, LowStockAlert, BalanceSheetData, ProfitLossData,
-  TrialBalanceData, AgedReceivablesData, AgedPayablesData,
+  TrialBalanceData, AgedReceivablesData, AgedPayablesData, CashFlowData,
+  PurchaseOrder, CreatePurchaseOrderDto, SalesOrder, CreateSalesOrderDto,
+  JournalEntry, CreateJournalEntryDto,
 } from "@/lib/types";
 import { mockDataStore } from "./mock-data";
 
@@ -572,6 +574,114 @@ export const mockReportsApi = {
       };
     });
   },
+
+  getBalanceSheet: async (asOfDate: Date): Promise<BalanceSheetData> => {
+    await delay(500);
+    const accounts = mockDataStore.accounts;
+
+    const currentAssets = accounts.filter(a => a.category === "current_asset" && !accounts.some(p => p.id === a.parentId && p.category === "current_asset"));
+    const fixedAssets = accounts.filter(a => a.category === "fixed_asset");
+    const currentLiabilities = accounts.filter(a => a.category === "current_liability" && !accounts.some(p => p.id === a.parentId));
+    const longTermLiabilities = accounts.filter(a => a.category === "long_term_liability");
+    const equityAccounts = accounts.filter(a => a.category === "equity" && a.parentId);
+
+    const toBalance = (accs: typeof accounts) => accs.map(a => ({
+      accountId: a.id, accountCode: a.code, accountName: a.name, balance: a.balance,
+    }));
+
+    const totalCurrentAssets = currentAssets.reduce((s, a) => s + a.balance, 0);
+    const totalFixedAssets = fixedAssets.reduce((s, a) => s + a.balance, 0);
+    const totalAssets = totalCurrentAssets + totalFixedAssets;
+    const totalCurrentLiabilities = currentLiabilities.reduce((s, a) => s + a.balance, 0);
+    const totalLongTermLiabilities = longTermLiabilities.reduce((s, a) => s + a.balance, 0);
+    const totalLiabilities = totalCurrentLiabilities + totalLongTermLiabilities;
+    const totalEquity = equityAccounts.reduce((s, a) => s + a.balance, 0);
+
+    return {
+      asOfDate,
+      assets: { currentAssets: toBalance(currentAssets), fixedAssets: toBalance(fixedAssets), totalAssets },
+      liabilities: { currentLiabilities: toBalance(currentLiabilities), longTermLiabilities: toBalance(longTermLiabilities), totalLiabilities },
+      equity: { equityAccounts: toBalance(equityAccounts), totalEquity },
+    };
+  },
+
+  getProfitLoss: async (startDate: Date, endDate: Date): Promise<ProfitLossData> => {
+    await delay(500);
+    const accounts = mockDataStore.accounts;
+
+    const revenueItems = accounts.filter(a => a.category === "operating_revenue" && a.parentId);
+    const cogsItems = accounts.filter(a => a.category === "cost_of_goods_sold");
+    const opexItems = accounts.filter(a => a.category === "operating_expense" && a.parentId);
+    const otherRevenue = accounts.filter(a => a.category === "other_revenue");
+    const otherExpense = accounts.filter(a => a.category === "other_expense");
+
+    const toBalance = (accs: typeof accounts) => accs.map(a => ({
+      accountId: a.id, accountCode: a.code, accountName: a.name, balance: a.balance,
+    }));
+
+    const totalRevenue = revenueItems.reduce((s, a) => s + a.balance, 0);
+    const totalCOGS = cogsItems.reduce((s, a) => s + a.balance, 0);
+    const grossProfit = totalRevenue - totalCOGS;
+    const totalOpex = opexItems.reduce((s, a) => s + a.balance, 0);
+    const otherIncome = otherRevenue.reduce((s, a) => s + a.balance, 0);
+    const otherExp = otherExpense.reduce((s, a) => s + a.balance, 0);
+    const netProfit = grossProfit - totalOpex + otherIncome - otherExp;
+
+    return {
+      startDate,
+      endDate,
+      revenue: { items: toBalance(revenueItems), total: totalRevenue },
+      costOfGoodsSold: { items: toBalance(cogsItems), total: totalCOGS },
+      grossProfit,
+      operatingExpenses: { items: toBalance(opexItems), total: totalOpex },
+      otherIncome,
+      otherExpenses: otherExp,
+      netProfit,
+    };
+  },
+
+  getCashFlow: async (startDate: Date, endDate: Date): Promise<CashFlowData> => {
+    await delay(500);
+    const cashAccounts = mockDataStore.accounts.filter(a => a.code === "1010" || a.code === "1020");
+    const openingBalance = cashAccounts.reduce((s, a) => s + a.balance * 0.85, 0);
+    const closingBalance = cashAccounts.reduce((s, a) => s + a.balance, 0);
+
+    const revenue = mockDataStore.accounts.find(a => a.code === "4010")?.balance ?? 0;
+    const cogs = mockDataStore.accounts.find(a => a.code === "5000")?.balance ?? 0;
+    const salaries = mockDataStore.accounts.find(a => a.code === "6010")?.balance ?? 0;
+    const rent = mockDataStore.accounts.find(a => a.code === "6020")?.balance ?? 0;
+
+    return {
+      startDate,
+      endDate,
+      operatingActivities: {
+        items: [
+          { description: "Cash receipts from customers", amount: revenue * 0.9 },
+          { description: "Cash paid to suppliers", amount: -cogs * 0.8 },
+          { description: "Cash paid for salaries", amount: -salaries },
+          { description: "Cash paid for rent", amount: -rent },
+        ],
+        total: revenue * 0.9 - cogs * 0.8 - salaries - rent,
+      },
+      investingActivities: {
+        items: [
+          { description: "Purchase of fixed assets", amount: -1500000 },
+          { description: "Proceeds from asset disposal", amount: 250000 },
+        ],
+        total: -1250000,
+      },
+      financingActivities: {
+        items: [
+          { description: "Loan repayment", amount: -500000 },
+          { description: "Owner drawings", amount: -300000 },
+        ],
+        total: -800000,
+      },
+      netCashFlow: closingBalance - openingBalance,
+      openingBalance,
+      closingBalance,
+    };
+  },
 };
 
 // ============================================
@@ -622,6 +732,182 @@ export const mockSettingsApi = {
       updatedAt: new Date(),
     };
     return mockDataStore.invoiceSettings;
+  },
+};
+
+// ============================================
+// PURCHASE ORDERS API
+// ============================================
+
+export const mockPurchaseOrdersApi = {
+  getAll: async (filters?: { status?: string; supplierId?: string; query?: string }) => {
+    await delay(300);
+    let orders = [...mockDataStore.purchaseOrders];
+
+    if (filters?.status) {
+      orders = orders.filter(o => o.status === filters.status);
+    }
+    if (filters?.supplierId) {
+      orders = orders.filter(o => o.supplierId === filters.supplierId);
+    }
+    if (filters?.query) {
+      const q = filters.query.toLowerCase();
+      orders = orders.filter(o =>
+        o.orderNumber.toLowerCase().includes(q) ||
+        o.supplierName.toLowerCase().includes(q)
+      );
+    }
+
+    return orders.sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
+  },
+
+  getById: async (id: string) => {
+    await delay(200);
+    const order = mockDataStore.purchaseOrders.find(o => o.id === id);
+    if (!order) throw new Error("Purchase order not found");
+    return order;
+  },
+
+  create: async (data: CreatePurchaseOrderDto) => {
+    await delay(500);
+    const newOrder: PurchaseOrder = {
+      ...data,
+      id: `po-${Date.now()}`,
+      orderNumber: `PO-${String(mockDataStore.purchaseOrders.length + 1021).padStart(4, "0")}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockDataStore.purchaseOrders.push(newOrder);
+    return newOrder;
+  },
+
+  update: async (id: string, data: Partial<PurchaseOrder>) => {
+    await delay(400);
+    const index = mockDataStore.purchaseOrders.findIndex(o => o.id === id);
+    if (index === -1) throw new Error("Purchase order not found");
+    mockDataStore.purchaseOrders[index] = { ...mockDataStore.purchaseOrders[index], ...data, updatedAt: new Date() };
+    return mockDataStore.purchaseOrders[index];
+  },
+
+  delete: async (id: string) => {
+    await delay(300);
+    const index = mockDataStore.purchaseOrders.findIndex(o => o.id === id);
+    if (index === -1) throw new Error("Purchase order not found");
+    mockDataStore.purchaseOrders.splice(index, 1);
+    return { success: true };
+  },
+};
+
+// ============================================
+// SALES ORDERS API
+// ============================================
+
+export const mockSalesOrdersApi = {
+  getAll: async (filters?: { status?: string; customerId?: string; query?: string }) => {
+    await delay(300);
+    let orders = [...mockDataStore.salesOrders];
+
+    if (filters?.status) {
+      orders = orders.filter(o => o.status === filters.status);
+    }
+    if (filters?.customerId) {
+      orders = orders.filter(o => o.customerId === filters.customerId);
+    }
+    if (filters?.query) {
+      const q = filters.query.toLowerCase();
+      orders = orders.filter(o =>
+        o.orderNumber.toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q)
+      );
+    }
+
+    return orders.sort((a, b) => b.orderDate.getTime() - a.orderDate.getTime());
+  },
+
+  getById: async (id: string) => {
+    await delay(200);
+    const order = mockDataStore.salesOrders.find(o => o.id === id);
+    if (!order) throw new Error("Sales order not found");
+    return order;
+  },
+
+  create: async (data: CreateSalesOrderDto) => {
+    await delay(500);
+    const newOrder: SalesOrder = {
+      ...data,
+      id: `so-${Date.now()}`,
+      orderNumber: `SO-${String(mockDataStore.salesOrders.length + 1021).padStart(4, "0")}`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockDataStore.salesOrders.push(newOrder);
+    return newOrder;
+  },
+
+  update: async (id: string, data: Partial<SalesOrder>) => {
+    await delay(400);
+    const index = mockDataStore.salesOrders.findIndex(o => o.id === id);
+    if (index === -1) throw new Error("Sales order not found");
+    mockDataStore.salesOrders[index] = { ...mockDataStore.salesOrders[index], ...data, updatedAt: new Date() };
+    return mockDataStore.salesOrders[index];
+  },
+
+  delete: async (id: string) => {
+    await delay(300);
+    const index = mockDataStore.salesOrders.findIndex(o => o.id === id);
+    if (index === -1) throw new Error("Sales order not found");
+    mockDataStore.salesOrders.splice(index, 1);
+    return { success: true };
+  },
+};
+
+// ============================================
+// JOURNAL ENTRIES API
+// ============================================
+
+export const mockJournalEntriesApi = {
+  getAll: async (filters?: { status?: string; query?: string }) => {
+    await delay(300);
+    let entries = [...mockDataStore.journalEntries];
+
+    if (filters?.status) {
+      entries = entries.filter(e => e.status === filters.status);
+    }
+    if (filters?.query) {
+      const q = filters.query.toLowerCase();
+      entries = entries.filter(e =>
+        e.entryNumber.toLowerCase().includes(q) ||
+        e.description.toLowerCase().includes(q) ||
+        e.reference.toLowerCase().includes(q)
+      );
+    }
+
+    return entries.sort((a, b) => b.date.getTime() - a.date.getTime());
+  },
+
+  getById: async (id: string) => {
+    await delay(200);
+    const entry = mockDataStore.journalEntries.find(e => e.id === id);
+    if (!entry) throw new Error("Journal entry not found");
+    return entry;
+  },
+
+  create: async (data: CreateJournalEntryDto) => {
+    await delay(500);
+    const totalDebits = data.lines.reduce((sum, l) => sum + l.debit, 0);
+    const totalCredits = data.lines.reduce((sum, l) => sum + l.credit, 0);
+    const newEntry: JournalEntry = {
+      ...data,
+      id: `je-${Date.now()}`,
+      entryNumber: `JE-${String(mockDataStore.journalEntries.length + 1009).padStart(4, "0")}`,
+      totalDebits,
+      totalCredits,
+      isBalanced: Math.abs(totalDebits - totalCredits) < 0.01,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    mockDataStore.journalEntries.push(newEntry);
+    return newEntry;
   },
 };
 

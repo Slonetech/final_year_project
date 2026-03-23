@@ -49,8 +49,24 @@ export default function ChartOfAccountsPage() {
   );
 
   // Organize accounts into tree structure by type
+  const emptyTree: Record<AccountType, AccountTreeNode[]> = {
+    asset: [],
+    liability: [],
+    equity: [],
+    revenue: [],
+    expense: [],
+  };
+
+  const emptyTotals: Record<AccountType, number> = {
+    asset: 0,
+    liability: 0,
+    equity: 0,
+    revenue: 0,
+    expense: 0,
+  };
+
   const accountTree = useMemo(() => {
-    if (!accounts) return {};
+    if (!accounts) return emptyTree;
 
     const tree: Record<AccountType, AccountTreeNode[]> = {
       asset: [],
@@ -88,7 +104,7 @@ export default function ChartOfAccountsPage() {
 
   // Calculate totals for each account type
   const accountTypeTotals = useMemo(() => {
-    if (!accounts) return {};
+    if (!accounts) return emptyTotals;
 
     const totals: Record<AccountType, number> = {
       asset: 0,
@@ -252,7 +268,7 @@ export default function ChartOfAccountsPage() {
 
               {/* Account Rows */}
               <div>
-                {accountsOfType.map((account) => renderAccountNode(account))}
+                {accountsOfType.map((account: AccountTreeNode) => renderAccountNode(account))}
               </div>
             </div>
           </CardContent>
@@ -308,9 +324,9 @@ export default function ChartOfAccountsPage() {
                 {(["asset", "liability", "equity", "revenue", "expense"] as AccountType[]).map(
                   (type) => {
                     const config = accountTypeConfig[type];
-                    const total = accountTypeTotals[type] || 0;
-                    const accountCount = (accountTree[type] || []).reduce(
-                      (count, account) => {
+                    const total = (accountTypeTotals as Record<AccountType, number>)[type] || 0;
+                    const accountCount = ((accountTree as Record<AccountType, AccountTreeNode[]>)[type] || []).reduce(
+                      (count: number, account: AccountTreeNode) => {
                         // Count the account and its children
                         const childCount = account.children ? account.children.length : 0;
                         return count + 1 + childCount;

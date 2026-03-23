@@ -300,6 +300,167 @@ export const mockInvoices: Invoice[] = Array.from({ length: 50 }, (_, index) => 
 });
 
 // ============================================
+// MOCK PURCHASE ORDERS
+// ============================================
+
+export const mockPurchaseOrders: PurchaseOrder[] = Array.from({ length: 20 }, (_, index) => {
+  const supplier = mockSuppliers[index % mockSuppliers.length];
+  const orderDate = randomDate(new Date("2024-01-01"), new Date("2024-10-31"));
+  const expectedDate = new Date(orderDate);
+  expectedDate.setDate(expectedDate.getDate() + randomInt(7, 30));
+
+  const statusList: PurchaseOrder["status"][] = ["draft", "submitted", "received", "paid"];
+  const status = index < 3 ? "draft" : index < 8 ? "submitted" : index < 15 ? "received" : "paid";
+
+  const lines = Array.from({ length: randomInt(1, 4) }, (_, i) => {
+    const product = mockProducts[randomInt(0, mockProducts.length - 1)];
+    const quantity = randomInt(1, 50);
+    const unitPrice = product.costPrice;
+    return {
+      id: `po-line-${index}-${i}`,
+      productId: product.id,
+      productName: product.name,
+      description: product.name,
+      quantity,
+      unitPrice,
+      total: quantity * unitPrice,
+    };
+  });
+
+  const subtotal = lines.reduce((sum, l) => sum + l.total, 0);
+  const taxRate = 16;
+  const taxAmount = subtotal * (taxRate / 100);
+
+  return {
+    id: `po-${index + 1}`,
+    orderNumber: `PO-${String(index + 1001).padStart(4, "0")}`,
+    supplierId: supplier.id,
+    supplierName: supplier.name,
+    orderDate,
+    expectedDate,
+    status,
+    lines,
+    subtotal,
+    taxAmount,
+    taxRate,
+    total: subtotal + taxAmount,
+    notes: "Standard purchase order",
+    createdBy: "user-1",
+    createdAt: orderDate,
+    updatedAt: new Date(),
+  };
+});
+
+// ============================================
+// MOCK SALES ORDERS
+// ============================================
+
+export const mockSalesOrders: SalesOrder[] = Array.from({ length: 20 }, (_, index) => {
+  const customer = mockCustomers[index % mockCustomers.length];
+  const orderDate = randomDate(new Date("2024-01-01"), new Date("2024-10-31"));
+  const deliveryDate = new Date(orderDate);
+  deliveryDate.setDate(deliveryDate.getDate() + randomInt(3, 14));
+
+  const status: SalesOrder["status"] = index < 3 ? "quote" : index < 8 ? "order" : index < 15 ? "delivered" : "paid";
+
+  const lines = Array.from({ length: randomInt(1, 4) }, (_, i) => {
+    const product = mockProducts[randomInt(0, mockProducts.length - 1)];
+    const quantity = randomInt(1, 30);
+    const unitPrice = product.sellingPrice;
+    return {
+      id: `so-line-${index}-${i}`,
+      productId: product.id,
+      productName: product.name,
+      description: product.name,
+      quantity,
+      unitPrice,
+      total: quantity * unitPrice,
+    };
+  });
+
+  const subtotal = lines.reduce((sum, l) => sum + l.total, 0);
+  const taxRate = 16;
+  const taxAmount = subtotal * (taxRate / 100);
+
+  return {
+    id: `so-${index + 1}`,
+    orderNumber: `SO-${String(index + 1001).padStart(4, "0")}`,
+    customerId: customer.id,
+    customerName: customer.name,
+    orderDate,
+    deliveryDate,
+    status,
+    lines,
+    subtotal,
+    taxAmount,
+    taxRate,
+    total: subtotal + taxAmount,
+    notes: "Standard sales order",
+    createdBy: "user-1",
+    createdAt: orderDate,
+    updatedAt: new Date(),
+  };
+});
+
+// ============================================
+// MOCK JOURNAL ENTRIES
+// ============================================
+
+const journalDescriptions = [
+  { ref: "JE-001", desc: "Monthly payroll processing", account1: "acc-42", account2: "acc-2" },
+  { ref: "JE-002", desc: "Office rent payment", account1: "acc-43", account2: "acc-2" },
+  { ref: "JE-003", desc: "Utility bills payment", account1: "acc-44", account2: "acc-2" },
+  { ref: "JE-004", desc: "Sales revenue recognition", account1: "acc-3", account2: "acc-31" },
+  { ref: "JE-005", desc: "COGS adjustment", account1: "acc-40", account2: "acc-5" },
+  { ref: "JE-006", desc: "VAT payment to KRA", account1: "acc-12", account2: "acc-2" },
+  { ref: "JE-007", desc: "Depreciation expense", account1: "acc-46", account2: "acc-6" },
+  { ref: "JE-008", desc: "Bank interest income", account1: "acc-3", account2: "acc-33" },
+];
+
+export const mockJournalEntries: JournalEntry[] = journalDescriptions.map((item, index) => {
+  const amount = randomInt(50000, 1000000);
+  const entryDate = randomDate(new Date("2024-01-01"), new Date("2024-10-31"));
+  const status: JournalEntry["status"] = index < 2 ? "draft" : "posted";
+
+  const lines = [
+    {
+      id: `je-line-${index}-0`,
+      accountId: item.account1,
+      accountCode: mockAccounts.find(a => a.id === item.account1)?.code ?? "0000",
+      accountName: mockAccounts.find(a => a.id === item.account1)?.name ?? "Unknown",
+      debit: amount,
+      credit: 0,
+      description: item.desc,
+    },
+    {
+      id: `je-line-${index}-1`,
+      accountId: item.account2,
+      accountCode: mockAccounts.find(a => a.id === item.account2)?.code ?? "0000",
+      accountName: mockAccounts.find(a => a.id === item.account2)?.name ?? "Unknown",
+      debit: 0,
+      credit: amount,
+      description: item.desc,
+    },
+  ];
+
+  return {
+    id: `je-${index + 1}`,
+    entryNumber: `JE-${String(index + 1001).padStart(4, "0")}`,
+    date: entryDate,
+    reference: item.ref,
+    description: item.desc,
+    lines,
+    totalDebits: amount,
+    totalCredits: amount,
+    isBalanced: true,
+    status,
+    createdBy: "user-1",
+    createdAt: entryDate,
+    updatedAt: new Date(),
+  };
+});
+
+// ============================================
 // MOCK PAYMENTS
 // ============================================
 
@@ -342,8 +503,9 @@ export const mockDataStore = {
   companySettings: mockCompanySettings,
   taxSettings: mockTaxSettings,
   invoiceSettings: mockInvoiceSettings,
-  purchaseOrders: [] as PurchaseOrder[],
-  salesOrders: [] as SalesOrder[],
-  journalEntries: [] as JournalEntry[],
+  purchaseOrders: mockPurchaseOrders,
+  salesOrders: mockSalesOrders,
+  journalEntries: mockJournalEntries,
   stockMovements: [] as StockMovement[],
 };
+

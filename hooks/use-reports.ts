@@ -26,6 +26,30 @@ export function useAgedPayables() {
   });
 }
 
+// Balance Sheet Hook
+export function useBalanceSheet(asOfDate: Date) {
+  return useQuery({
+    queryKey: ["balance-sheet", asOfDate.toISOString()],
+    queryFn: () => mockReportsApi.getBalanceSheet(asOfDate),
+  });
+}
+
+// Profit & Loss Hook
+export function useProfitLoss(startDate: Date, endDate: Date) {
+  return useQuery({
+    queryKey: ["profit-loss", startDate.toISOString(), endDate.toISOString()],
+    queryFn: () => mockReportsApi.getProfitLoss(startDate, endDate),
+  });
+}
+
+// Cash Flow Hook
+export function useCashFlow(startDate: Date, endDate: Date) {
+  return useQuery({
+    queryKey: ["cash-flow", startDate.toISOString(), endDate.toISOString()],
+    queryFn: () => mockReportsApi.getCashFlow(startDate, endDate),
+  });
+}
+
 // Export to PDF Mock Function
 export function useExportToPDF() {
   return {

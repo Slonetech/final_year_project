@@ -23,14 +23,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Plus, Search, ArrowDownRight, ArrowUpRight, CreditCard, Banknote, Building2, FileText } from "lucide-react";
+import { Plus, Search, ArrowDownRight, ArrowUpRight, CreditCard, Banknote, Building2, FileText, Smartphone } from "lucide-react";
 import { PaymentFormDialog } from "./payment-form-dialog";
+import { PayHeroPaymentDialog } from "@/components/dashboard/payhero-payment-dialog";
+
 
 export default function PaymentsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isPayHeroDialogOpen, setIsPayHeroDialogOpen] = useState(false);
+
 
   const filters = {
     type: typeFilter === "all" ? undefined : typeFilter,
@@ -109,10 +113,16 @@ export default function PaymentsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Payments</h1>
           <p className="text-muted-foreground">Track all payments received and made</p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Record Payment
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsPayHeroDialogOpen(true)} variant="default">
+            <Smartphone className="w-4 h-4 mr-2" />
+            PayHero Payment
+          </Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)} variant="outline">
+            <Plus className="w-4 h-4 mr-2" />
+            Manual Entry
+          </Button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -254,9 +264,8 @@ export default function PaymentsPage() {
                         {payment.type === "received" ? payment.customerName : payment.supplierName}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-medium ${
-                          payment.type === "received" ? "text-green-600" : "text-red-600"
-                        }`}
+                        className={`text-right font-medium ${payment.type === "received" ? "text-green-600" : "text-red-600"
+                          }`}
                       >
                         {payment.type === "received" ? "+" : "-"}
                         {formatCurrency(payment.amount)}
@@ -299,6 +308,12 @@ export default function PaymentsPage() {
       <PaymentFormDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
+      />
+
+      {/* PayHero Payment Dialog */}
+      <PayHeroPaymentDialog
+        open={isPayHeroDialogOpen}
+        onOpenChange={setIsPayHeroDialogOpen}
       />
     </div>
   );
