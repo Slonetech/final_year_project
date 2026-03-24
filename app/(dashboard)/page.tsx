@@ -7,7 +7,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { ArrowUp, ArrowDown, DollarSign, TrendingUp, TrendingDown, Wallet, AlertTriangle } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import dynamic from "next/dynamic";
+
+const SalesChart = dynamic(() => import("@/components/dashboard/sales-chart"), {
+  loading: () => (
+    <div className="h-[300px] w-full flex items-center justify-center">
+      <p className="text-muted-foreground">Loading chart...</p>
+    </div>
+  ),
+});
 
 export default function DashboardPage() {
   const { data: kpis, isLoading: kpisLoading } = useQuery({
@@ -124,44 +132,7 @@ export default function DashboardPage() {
           <CardDescription>Last 10 months performance</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={salesData || []}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="month" className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="rounded-lg border bg-background p-2 shadow-sm">
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="flex flex-col">
-                            <span className="text-[0.70rem] uppercase text-muted-foreground">
-                              Sales
-                            </span>
-                            <span className="font-bold text-green-600">
-                              {formatCurrency(payload[0].value as number)}
-                            </span>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[0.70rem] uppercase text-muted-foreground">
-                              Expenses
-                            </span>
-                            <span className="font-bold text-red-600">
-                              {formatCurrency(payload[1].value as number)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Line type="monotone" dataKey="sales" stroke="hsl(var(--chart-1))" strokeWidth={2} />
-              <Line type="monotone" dataKey="expenses" stroke="hsl(var(--chart-2))" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
+          <SalesChart data={salesData || []} />
         </CardContent>
       </Card>
 

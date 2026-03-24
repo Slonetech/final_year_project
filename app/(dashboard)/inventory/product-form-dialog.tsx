@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Product, CreateProductDto } from "@/lib/types";
-import { useCreateProduct, useUpdateProduct } from "@/hooks/use-products";
 import {
   Dialog,
   DialogContent,
@@ -34,6 +33,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
+import { createProductAction, updateProductAction } from "./actions";
+import { toast } from "sonner";
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required"),
@@ -68,8 +69,7 @@ export function ProductFormDialog({
   viewOnly = false,
 }: ProductFormDialogProps) {
   const isEditing = !!product;
-  const createProduct = useCreateProduct();
-  const updateProduct = useUpdateProduct();
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -118,32 +118,31 @@ export function ProductFormDialog({
         status: "active",
       });
     }
-  }, [product, form]);
+  }, [product, form, open]);
 
-  const onSubmit = async (data: ProductFormData) => {
-    try {
-      const productData: CreateProductDto = {
-        ...data,
-      };
+  const onSubmit = (data: ProductFormData) => {
+    startTransition(async () => {
+      try {
+        const productData: CreateProductDto = {
+          ...data,
+        };
 
-      if (isEditing) {
-        await updateProduct.mutateAsync({
-          id: product.id,
-          data: productData,
-        });
-      } else {
-        await createProduct.mutateAsync(productData);
+        if (isEditing) {
+          await updateProductAction(product.id, productData);
+          toast.success("Product updated successfully");
+        } else {
+          await createProductAction(productData);
+          toast.success("Product created successfully");
+        }
+
+        onOpenChange(false);
+        form.reset();
+      } catch (error) {
+        toast.error(isEditing ? "Failed to update product" : "Failed to create product");
+        console.error("Form submission error:", error);
       }
-
-      onOpenChange(false);
-      form.reset();
-    } catch (error) {
-      // Error handling is done in the hooks
-      console.error("Form submission error:", error);
-    }
+    });
   };
-
-  const isSubmitting = createProduct.isPending || updateProduct.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -497,12 +496,12 @@ export function ProductFormDialog({
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  disabled={isSubmitting}
+                  disabled={isPending}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                       {isEditing ? "Updating..." : "Creating..."}

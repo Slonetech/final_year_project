@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { CreatePaymentDto, PaymentMethod, PaymentType } from "@/lib/types";
-import { useCreatePayment } from "@/hooks/use-payments";
-import { useCustomers } from "@/hooks/use-customers";
-import { useSuppliers } from "@/hooks/use-suppliers";
-import { useInvoices } from "@/hooks/use-invoices";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +34,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency } from "@/lib/utils";
 import { CreditCard } from "lucide-react";
+import { createPaymentAction } from "./actions";
+import { toast } from "sonner";
 
 const paymentSchema = z.object({
   type: z.enum(["received", "made"]),
@@ -54,18 +52,11 @@ const paymentSchema = z.object({
   mpesaPhoneNumber: z.string().optional(),
 }).refine(
   (data) => {
-    // If payment type is "received", customerId is required
-    if (data.type === "received" && !data.customerId) {
-      return false;
-    }
-    // If payment type is "made", supplierId is required
-    if (data.type === "made" && !data.supplierId) {
-      return false;
-    }
+    if (data.type === "received" && !data.customerId) return false;
     return true;
   },
   {
-    message: "Customer or Supplier is required based on payment type",
+    message: "Customer is required based on payment type",
     path: ["customerId"],
   }
 ).refine(
@@ -87,25 +78,19 @@ type PaymentFormData = z.infer<typeof paymentSchema>;
 interface PaymentFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  customers: any[];
 }
 
 export function PaymentFormDialog({
   open,
   onOpenChange,
+  customers,
 }: PaymentFormDialogProps) {
-  const createPayment = useCreatePayment();
+  const [isPending, startTransition] = useTransition();
   const [selectedType, setSelectedType] = useState<PaymentType>("received");
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("cash");
 
-  // Fetch customers and suppliers
-  const { data: customers } = useCustomers({ status: "active" });
-  const { data: suppliers } = useSuppliers({ status: "active" });
-
-  // Fetch invoices based on selected customer (for linking payments)
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>();
-  const { data: invoices } = useInvoices({
-    customerId: selectedType === "received" ? selectedCustomerId : undefined,
-  });
 
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
@@ -124,19 +109,16 @@ export function PaymentFormDialog({
     },
   });
 
-  // Watch for changes in payment type and method
   useEffect(() => {
     const subscription = form.watch((value, { name }) => {
       if (name === "type") {
         setSelectedType(value.type as PaymentType);
-        // Clear customer/supplier when type changes
         form.setValue("customerId", "");
         form.setValue("supplierId", "");
         form.setValue("invoiceId", "");
       }
       if (name === "method") {
         setSelectedMethod(value.method as PaymentMethod);
-        // Clear M-Pesa fields if method is not M-Pesa
         if (value.method !== "mpesa") {
           form.setValue("mpesaTransactionCode", "");
           form.setValue("mpesaPhoneNumber", "");
@@ -150,53 +132,47 @@ export function PaymentFormDialog({
   }, [form]);
 
   const onSubmit = async (data: PaymentFormData) => {
-    try {
-      // Find customer or supplier name
-      let customerName: string | undefined;
-      let supplierName: string | undefined;
+    startTransition(async () => {
+      try {
+        let customerName: string | undefined;
+        let supplierName: string | undefined;
 
-      if (data.type === "received" && data.customerId) {
-        const customer = customers?.find((c) => c.id === data.customerId);
-        customerName = customer?.name;
-      } else if (data.type === "made" && data.supplierId) {
-        const supplier = suppliers?.find((s) => s.id === data.supplierId);
-        supplierName = supplier?.name;
+        if (data.type === "received" && data.customerId) {
+          const customer = customers?.find((c) => c.id === data.customerId);
+          customerName = customer?.name;
+        }
+
+        const paymentData = {
+          type: data.type,
+          date: new Date(data.date).toISOString(),
+          amount: data.amount,
+          method: data.method,
+          reference: data.reference,
+          customerId: data.type === "received" ? data.customerId : null,
+          customerName: data.type === "received" ? customerName : undefined,
+          supplierId: data.type === "made" ? data.supplierId : undefined,
+          supplierName: data.type === "made" ? supplierName : undefined,
+          invoiceId: data.invoiceId || undefined,
+          notes: data.notes || undefined,
+        };
+
+        await createPaymentAction(paymentData);
+        toast.success("Payment recorded successfully");
+        onOpenChange(false);
+        form.reset();
+      } catch (error) {
+        console.error("Form submission error:", error);
+        toast.error("Failed to record payment");
       }
-
-      const paymentData: CreatePaymentDto = {
-        type: data.type,
-        date: new Date(data.date),
-        amount: data.amount,
-        method: data.method,
-        reference: data.reference,
-        customerId: data.type === "received" ? data.customerId : undefined,
-        customerName: data.type === "received" ? customerName : undefined,
-        supplierId: data.type === "made" ? data.supplierId : undefined,
-        supplierName: data.type === "made" ? supplierName : undefined,
-        invoiceId: data.invoiceId || undefined,
-        notes: data.notes || undefined,
-        createdBy: "current-user", // In real app, get from auth context
-      };
-
-      await createPayment.mutateAsync(paymentData);
-
-      onOpenChange(false);
-      form.reset();
-    } catch (error) {
-      console.error("Form submission error:", error);
-    }
+    });
   };
 
-  const isSubmitting = createPayment.isPending;
+  const isSubmitting = isPending;
 
-  // Get the customer/supplier name for display
   const getEntityName = () => {
     if (selectedType === "received" && form.watch("customerId")) {
       const customer = customers?.find((c) => c.id === form.watch("customerId"));
       return customer?.name;
-    } else if (selectedType === "made" && form.watch("supplierId")) {
-      const supplier = suppliers?.find((s) => s.id === form.watch("supplierId"));
-      return supplier?.name;
     }
     return null;
   };
@@ -214,7 +190,6 @@ export function PaymentFormDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              {/* Payment Type */}
               <FormField
                 control={form.control}
                 name="type"
@@ -237,7 +212,6 @@ export function PaymentFormDialog({
                 )}
               />
 
-              {/* Date */}
               <FormField
                 control={form.control}
                 name="date"
@@ -252,7 +226,6 @@ export function PaymentFormDialog({
                 )}
               />
 
-              {/* Amount */}
               <FormField
                 control={form.control}
                 name="amount"
@@ -273,7 +246,6 @@ export function PaymentFormDialog({
                 )}
               />
 
-              {/* Payment Method */}
               <FormField
                 control={form.control}
                 name="method"
@@ -355,7 +327,6 @@ export function PaymentFormDialog({
                 </>
               )}
 
-              {/* Customer/Supplier Selector */}
               {selectedType === "received" ? (
                 <FormField
                   control={form.control}
@@ -388,18 +359,13 @@ export function PaymentFormDialog({
                   render={({ field }) => (
                     <FormItem className={selectedMethod === "mpesa" ? "" : "col-span-2"}>
                       <FormLabel>Supplier *</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select disabled onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select supplier" />
+                            <SelectValue placeholder="Suppliers not implemented (Schema doesn't have supplier_id)" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {suppliers?.map((supplier) => (
-                            <SelectItem key={supplier.id} value={supplier.id}>
-                              {supplier.name}
-                            </SelectItem>
-                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -408,36 +374,6 @@ export function PaymentFormDialog({
                 />
               )}
 
-              {/* Invoice Selector (Optional) */}
-              {selectedType === "received" && selectedCustomerId && (
-                <FormField
-                  control={form.control}
-                  name="invoiceId"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormLabel>Link to Invoice (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select invoice (optional)" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="">None</SelectItem>
-                          {invoices?.map((invoice) => (
-                            <SelectItem key={invoice.id} value={invoice.id}>
-                              {invoice.invoiceNumber} - {formatCurrency(invoice.amountDue)} due
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-
-              {/* Reference */}
               <FormField
                 control={form.control}
                 name="reference"
@@ -470,7 +406,6 @@ export function PaymentFormDialog({
                 )}
               />
 
-              {/* Notes */}
               <FormField
                 control={form.control}
                 name="notes"
@@ -490,7 +425,6 @@ export function PaymentFormDialog({
               />
             </div>
 
-            {/* Summary */}
             {form.watch("amount") > 0 && getEntityName() && (
               <div className="bg-muted/50 p-4 rounded-lg space-y-2">
                 <p className="text-sm font-medium">Payment Summary:</p>

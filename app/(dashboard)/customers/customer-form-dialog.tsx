@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Customer, CreateCustomerDto } from "@/lib/types";
-import { useCreateCustomer, useUpdateCustomer } from "@/hooks/use-customers";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +31,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
+import { createCustomerAction, updateCustomerAction } from "./actions";
+import { toast } from "sonner";
 
 const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -63,8 +64,7 @@ export function CustomerFormDialog({
   viewOnly = false,
 }: CustomerFormDialogProps) {
   const isEditing = !!customer;
-  const createCustomer = useCreateCustomer();
-  const updateCustomer = useUpdateCustomer();
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<CustomerFormData>({
     resolver: zodResolver(customerSchema),
@@ -87,16 +87,16 @@ export function CustomerFormDialog({
     if (customer) {
       form.reset({
         name: customer.name,
-        contactPerson: customer.contactPerson,
+        contactPerson: customer.contactPerson || "",
         email: customer.email,
         phone: customer.phone,
         address: customer.address,
         city: customer.city,
         country: customer.country,
         pin: customer.pin || "",
-        paymentTerms: customer.paymentTerms,
-        creditLimit: customer.creditLimit,
-        status: customer.status,
+        paymentTerms: customer.paymentTerms || 30,
+        creditLimit: customer.creditLimit || 0,
+        status: customer.status || "active",
       });
     } else {
       form.reset({
@@ -115,31 +115,30 @@ export function CustomerFormDialog({
     }
   }, [customer, form]);
 
-  const onSubmit = async (data: CustomerFormData) => {
-    try {
-      const customerData: CreateCustomerDto = {
-        ...data,
-        pin: data.pin || undefined,
-      };
+  const onSubmit = (data: CustomerFormData) => {
+    startTransition(async () => {
+      try {
+        const customerData: CreateCustomerDto = {
+          ...data,
+          pin: data.pin || undefined,
+        };
 
-      if (isEditing) {
-        await updateCustomer.mutateAsync({
-          id: customer.id,
-          data: customerData,
-        });
-      } else {
-        await createCustomer.mutateAsync(customerData);
+        if (isEditing) {
+          await updateCustomerAction(customer.id, customerData);
+          toast.success("Customer updated successfully");
+        } else {
+          await createCustomerAction(customerData);
+          toast.success("Customer created successfully");
+        }
+
+        onOpenChange(false);
+        form.reset();
+      } catch (error) {
+        toast.error(isEditing ? "Failed to update customer" : "Failed to create customer");
+        console.error("Form submission error:", error);
       }
-
-      onOpenChange(false);
-      form.reset();
-    } catch (error) {
-      // Error handling is done in the hooks
-      console.error("Form submission error:", error);
-    }
+    });
   };
-
-  const isSubmitting = createCustomer.isPending || updateCustomer.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -166,7 +165,7 @@ export function CustomerFormDialog({
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Contact Person</p>
-                <p className="text-sm">{customer.contactPerson}</p>
+                <p className="text-sm">{customer.contactPerson || "N/A"}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Email</p>
@@ -196,15 +195,15 @@ export function CustomerFormDialog({
               )}
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Payment Terms</p>
-                <p className="text-sm">{customer.paymentTerms} days</p>
+                <p className="text-sm">{customer.paymentTerms || 30} days</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Credit Limit</p>
-                <p className="text-sm">{formatCurrency(customer.creditLimit)}</p>
+                <p className="text-sm">{formatCurrency(customer.creditLimit || 0)}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Balance</p>
-                <p className="text-sm">{formatCurrency(customer.balance)}</p>
+                <p className="text-sm">{formatCurrency(customer.balance || 0)}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
@@ -394,12 +393,12 @@ export function CustomerFormDialog({
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
-                  disabled={isSubmitting}
+                  disabled={isPending}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? (
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                       {isEditing ? "Updating..." : "Creating..."}
