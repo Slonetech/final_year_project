@@ -13,14 +13,42 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { Download, Printer, AlertTriangle } from "lucide-react";
+import { exportToPDF } from "@/lib/utils/pdf-export";
+import { exportAgedReceivablesToExcel } from "@/lib/utils/excel-export";
+import { Download, Printer, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
 export default function AgedReceivablesClient({ initialData }: { initialData: AgedReceivablesData[] }) {
   const handlePrint = () => window.print();
-  const handleExport = () => toast.success("Exporting to PDF feature comming soon...");
+
+  const handleExportPDF = async () => {
+    try {
+      await exportToPDF(
+        "aged-receivables-report",
+        `aged-receivables-${format(new Date(), "yyyy-MM-dd")}.pdf`,
+        { orientation: "landscape" }
+      );
+      toast.success("Aged Receivables report exported to PDF successfully");
+    } catch (error) {
+      toast.error("Failed to export PDF");
+      console.error(error);
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      exportAgedReceivablesToExcel(
+        initialData,
+        `aged-receivables-${format(new Date(), "yyyy-MM-dd")}.xlsx`
+      );
+      toast.success("Aged Receivables report exported to Excel successfully");
+    } catch (error) {
+      toast.error("Failed to export Excel");
+      console.error(error);
+    }
+  };
 
   const totals = useMemo(() => {
     if (!initialData) return null;
@@ -44,7 +72,7 @@ export default function AgedReceivablesClient({ initialData }: { initialData: Ag
   }, [totals]);
 
   return (
-    <div className="space-y-6">
+    <div id="aged-receivables-report" className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between print:hidden">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Aged Receivables</h1>
@@ -55,7 +83,11 @@ export default function AgedReceivablesClient({ initialData }: { initialData: Ag
             <Printer className="w-4 h-4 mr-2" />
             Print
           </Button>
-          <Button onClick={handleExport}>
+          <Button variant="outline" onClick={handleExportExcel}>
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Export to Excel
+          </Button>
+          <Button onClick={handleExportPDF}>
             <Download className="w-4 h-4 mr-2" />
             Export to PDF
           </Button>
@@ -190,8 +222,8 @@ export default function AgedReceivablesClient({ initialData }: { initialData: Ag
                  <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 print:hidden">
                    <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-500 mt-0.5" />
                    <div className="flex-1">
-                     <h4 className="font-semibold text-red-900 dark:text-red-200">High Overdue Amount Detected</h4>
-                     <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                     <h4 className="font-semibold text-black-900 dark:text-black-200">High Overdue Amount Detected</h4>
+                     <p className="text-sm text-black-700 dark:text-black-300 mt-1">
                        {overduePercentage.toFixed(1)}% of your receivables are overdue. Consider following up with customers who have outstanding balances over 30 days.
                      </p>
                    </div>

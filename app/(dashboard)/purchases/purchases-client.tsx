@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { PurchaseOrder, PurchaseOrderStatus } from "@/lib/types";
+import { useState, useMemo } from "react";
+import { PurchaseOrder, PurchaseOrderStatus, Supplier, Product } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,47 +32,50 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { MoreHorizontal, Plus, Search, Eye, Trash2 } from "lucide-react";
 import { deletePurchaseOrderAction } from "./actions";
 import { toast } from "sonner";
+import { PurchaseOrderFormDialog } from "./purchase-order-form-dialog";
 
 const statusColor: Record<string, string> = {
-    draft: "",
-    submitted: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-    received: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    paid: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    pending: "bg-slate-300 text-slate-950 border-slate-400 dark:bg-slate-700 dark:text-slate-50 dark:border-slate-600",
+    approved: "bg-orange-300 text-orange-950 border-orange-400 dark:bg-orange-700 dark:text-orange-50 dark:border-orange-600",
+    received: "bg-sky-300 text-sky-950 border-sky-400 dark:bg-sky-700 dark:text-sky-50 dark:border-sky-600",
+    completed: "bg-emerald-300 text-emerald-950 border-emerald-400 dark:bg-emerald-700 dark:text-emerald-50 dark:border-emerald-600",
 };
 
-export default function PurchasesClient({ 
-  initialOrders, 
-  query, 
-  status 
-}: { 
-  initialOrders: PurchaseOrder[]; 
-  query: string; 
-  status: string; 
+
+export default function PurchasesClient({
+    initialOrders,
+    suppliers,
+    products,
+}: {
+    initialOrders: PurchaseOrder[];
+    suppliers: Supplier[];
+    products: Product[];
 }) {
-    const router = useRouter();
-    const pathname = usePathname();
-    const [isPending, startTransition] = useTransition();
-    const [searchQuery, setSearchQuery] = useState(query);
-    const [statusFilter, setStatusFilter] = useState(status);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [dialogOpen, setDialogOpen] = useState(false);
 
-    const updateFilters = (newQuery: string, newStatus: string) => {
-      startTransition(() => {
-        const params = new URLSearchParams();
-        if (newQuery) params.set("query", newQuery);
-        if (newStatus && newStatus !== "all") params.set("status", newStatus);
-        router.push(`${pathname}?${params.toString()}`);
-      });
-    };
+    // Client-side filtering
+    const filteredOrders = useMemo(() => {
+        return initialOrders.filter((order) => {
+            // Status filter
+            if (statusFilter !== "all" && order.status !== statusFilter) {
+                return false;
+            }
 
-    const handleSearchChange = (val: string) => {
-      setSearchQuery(val);
-      updateFilters(val, statusFilter);
-    };
+            // Search filter
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                const matchesOrderNumber = order.orderNumber?.toLowerCase().includes(query);
+                const matchesSupplier = order.supplierName?.toLowerCase().includes(query);
+                const matchesTotal = order.total?.toString().includes(query);
 
-    const handleStatusChange = (val: string) => {
-      setStatusFilter(val);
-      updateFilters(searchQuery, val);
-    };
+                return matchesOrderNumber || matchesSupplier || matchesTotal;
+            }
+
+            return true;
+        });
+    }, [initialOrders, searchQuery, statusFilter]);
 
     const handleDelete = async (id: string) => {
         if (confirm("Are you sure you want to delete this purchase order?")) {
@@ -93,7 +95,7 @@ export default function PurchasesClient({
                     <h1 className="text-3xl font-bold tracking-tight">Purchases</h1>
                     <p className="text-muted-foreground">Manage your purchase orders</p>
                 </div>
-                <Button>
+                <Button onClick={() => setDialogOpen(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     New Purchase Order
                 </Button>
@@ -111,32 +113,41 @@ export default function PurchasesClient({
                             <Input
                                 placeholder="Search by order number or supplier..."
                                 value={searchQuery}
-                                onChange={(e) => handleSearchChange(e.target.value)}
+                                onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-9"
                             />
                         </div>
-                        <Select value={statusFilter} onValueChange={handleStatusChange}>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
                             <SelectTrigger className="w-full md:w-[180px]">
                                 <SelectValue placeholder="Filter by status" />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All Status</SelectItem>
-                                <SelectItem value="draft">Draft</SelectItem>
-                                <SelectItem value="submitted">Submitted</SelectItem>
-                                <SelectItem value="received">Received</SelectItem>
-                                <SelectItem value="paid">Paid</SelectItem>
+                                <SelectItem value="pending">
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${statusColor.pending}`}>
+                                        Pending
+                                    </span>
+                                </SelectItem>
+                                <SelectItem value="approved">
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${statusColor.approved}`}>
+                                        Approved
+                                    </span>
+                                </SelectItem>
+                                <SelectItem value="received">
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${statusColor.received}`}>
+                                        Received
+                                    </span>
+                                </SelectItem>
+                                <SelectItem value="completed">
+                                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize border ${statusColor.completed}`}>
+                                        Completed
+                                    </span>
+                                </SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
 
-                    {isPending ? (
-                        <div className="flex items-center justify-center h-64">
-                            <div className="text-center">
-                                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                                <p className="text-muted-foreground">Refreshing purchase orders...</p>
-                            </div>
-                        </div>
-                    ) : initialOrders.length > 0 ? (
+                    {filteredOrders.length > 0 ? (
                         <div className="rounded-md border overflow-x-auto">
                             <Table>
                                 <TableHeader>
@@ -151,7 +162,7 @@ export default function PurchasesClient({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {initialOrders.map((order) => (
+                                    {filteredOrders.map((order) => (
                                         <TableRow key={order.id}>
                                             <TableCell className="font-medium font-mono">{order.orderNumber}</TableCell>
                                             <TableCell>{order.supplierName}</TableCell>
@@ -208,7 +219,7 @@ export default function PurchasesClient({
                                     : "Get started by creating your first purchase order"}
                             </p>
                             {!searchQuery && statusFilter === "all" && (
-                                <Button>
+                                <Button onClick={() => setDialogOpen(true)}>
                                     <Plus className="w-4 h-4 mr-2" />
                                     New Purchase Order
                                 </Button>
@@ -217,6 +228,13 @@ export default function PurchasesClient({
                     )}
                 </CardContent>
             </Card>
+
+            <PurchaseOrderFormDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                suppliers={suppliers}
+                products={products}
+            />
         </div>
     );
 }

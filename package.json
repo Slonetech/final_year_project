@@ -6,7 +6,8 @@
     "dev": "next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate": "tsx scripts/run-migrations.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -29,6 +30,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.552.0",
     "next": "16.0.1",
     "react": "19.2.0",
@@ -38,6 +41,7 @@
     "recharts": "^3.3.0",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
+    "xlsx": "^0.18.5",
     "zod": "^4.1.12"
   },
   "devDependencies": {

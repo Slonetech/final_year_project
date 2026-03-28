@@ -17,7 +17,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { Download, Printer, Calendar as CalendarIcon, ArrowRight } from "lucide-react";
+import { exportProfitLossToExcel } from "@/lib/utils/excel-export";
+import { Printer, Calendar as CalendarIcon, ArrowRight, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -53,10 +54,24 @@ export default function ProfitLossClient({
   };
 
   const handlePrint = () => window.print();
-  const handleExport = () => toast.success("Exporting to PDF feature comming soon...");
+
+  const handleExportExcel = () => {
+    try {
+      exportProfitLossToExcel(
+        initialData,
+        dateRange.from,
+        dateRange.to || new Date(),
+        `profit-loss-${format(dateRange.from, "yyyy-MM-dd")}-to-${dateRange.to ? format(dateRange.to, "yyyy-MM-dd") : "present"}.xlsx`
+      );
+      toast.success("Profit & Loss report exported to Excel successfully");
+    } catch (error) {
+      toast.error("Failed to export Excel");
+      console.error(error);
+    }
+  };
 
   return (
-        <div className="space-y-6">
+        <div id="profit-loss-report" className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between print:hidden">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Profit & Loss</h1>
@@ -105,9 +120,9 @@ export default function ProfitLossClient({
                         <Printer className="w-4 h-4 mr-2" />
                         Print
                     </Button>
-                    <Button onClick={handleExport}>
-                        <Download className="w-4 h-4 mr-2" />
-                        Export to PDF
+                    <Button variant="outline" onClick={handleExportExcel}>
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        Export to Excel
                     </Button>
                 </div>
             </div>

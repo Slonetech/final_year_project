@@ -219,7 +219,7 @@ export type CreateInvoiceDto = Omit<Invoice, "id" | "invoiceNumber" | "amountPai
 // PAYMENT TYPES
 // ============================================
 
-export type PaymentMethod = "cash" | "mpesa" | "payhero_mpesa" | "payhero_card" | "bank_transfer" | "cheque";
+export type PaymentMethod = "cash" | "mpesa" | "bank_transfer" | "cheque";
 export type PaymentType = "received" | "made";
 
 export interface Payment {
@@ -238,13 +238,6 @@ export interface Payment {
   notes?: string;
   createdBy: string;
   createdAt: Date;
-  // PayHero Integration Fields
-  payHeroTransactionId?: string;
-  payHeroTransactionReference?: string;
-  payHeroStatus?: "pending" | "processing" | "success" | "failed" | "cancelled" | "expired";
-  payHeroProvider?: string;
-  payHeroPhoneNumber?: string;
-  payHeroCompletedAt?: Date;
 }
 
 export interface MpesaPayment {

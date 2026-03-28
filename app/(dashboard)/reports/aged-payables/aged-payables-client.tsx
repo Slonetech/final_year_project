@@ -13,14 +13,42 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { Download, Printer, AlertTriangle } from "lucide-react";
+import { exportToPDF } from "@/lib/utils/pdf-export";
+import { exportAgedPayablesToExcel } from "@/lib/utils/excel-export";
+import { Download, Printer, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
 export default function AgedPayablesClient({ initialData }: { initialData: AgedPayablesData[] }) {
   const handlePrint = () => window.print();
-  const handleExport = () => toast.success("Exporting to PDF feature comming soon...");
+
+  const handleExportPDF = async () => {
+    try {
+      await exportToPDF(
+        "aged-payables-report",
+        `aged-payables-${format(new Date(), "yyyy-MM-dd")}.pdf`,
+        { orientation: "landscape" }
+      );
+      toast.success("Aged Payables report exported to PDF successfully");
+    } catch (error) {
+      toast.error("Failed to export PDF");
+      console.error(error);
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      exportAgedPayablesToExcel(
+        initialData,
+        `aged-payables-${format(new Date(), "yyyy-MM-dd")}.xlsx`
+      );
+      toast.success("Aged Payables report exported to Excel successfully");
+    } catch (error) {
+      toast.error("Failed to export Excel");
+      console.error(error);
+    }
+  };
 
   const totals = useMemo(() => {
     if (!initialData) return null;
@@ -44,7 +72,7 @@ export default function AgedPayablesClient({ initialData }: { initialData: AgedP
   }, [totals]);
 
   return (
-    <div className="space-y-6">
+    <div id="aged-payables-report" className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between print:hidden">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Aged Payables</h1>
@@ -55,7 +83,11 @@ export default function AgedPayablesClient({ initialData }: { initialData: AgedP
             <Printer className="w-4 h-4 mr-2" />
             Print
           </Button>
-          <Button onClick={handleExport}>
+          <Button variant="outline" onClick={handleExportExcel}>
+            <FileSpreadsheet className="w-4 h-4 mr-2" />
+            Export to Excel
+          </Button>
+          <Button onClick={handleExportPDF}>
             <Download className="w-4 h-4 mr-2" />
             Export to PDF
           </Button>

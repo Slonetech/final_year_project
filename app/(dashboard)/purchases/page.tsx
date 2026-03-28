@@ -1,16 +1,20 @@
 import { getAll } from "@/lib/supabase/queries/purchases";
+import { getAll as getAllSuppliers } from "@/lib/supabase/queries/suppliers";
+import { getAll as getAllInventory } from "@/lib/supabase/queries/inventory";
 import PurchasesClient from "./purchases-client";
 
-export default async function PurchasesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
-}) {
-  const params = await searchParams;
-  const query = typeof params.query === "string" ? params.query : "";
-  const status = typeof params.status === "string" ? params.status : "all";
+export default async function PurchasesPage() {
+  const [orders, suppliers, products] = await Promise.all([
+    getAll(), // Fetch all orders without filtering
+    getAllSuppliers(),
+    getAllInventory(),
+  ]);
 
-  const orders = await getAll(query, status);
-
-  return <PurchasesClient initialOrders={orders} query={query} status={status} />;
+  return (
+    <PurchasesClient
+      initialOrders={orders}
+      suppliers={suppliers}
+      products={products}
+    />
+  );
 }

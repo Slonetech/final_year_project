@@ -15,18 +15,19 @@ const SalesChart = dynamic(() => import("@/components/dashboard/sales-chart"), {
   ),
 });
 
-export default function DashboardClient({ 
-  kpis, 
-  transactions, 
-  topCustomers, 
-  lowStockAlerts 
-}: { 
-  kpis: any, 
-  transactions: any[], 
-  topCustomers: any[], 
-  lowStockAlerts: any[] 
+export default function DashboardClient({
+  kpis,
+  transactions,
+  topCustomers,
+  lowStockAlerts,
+  salesData
+}: {
+  kpis: any,
+  transactions: any[],
+  topCustomers: any[],
+  lowStockAlerts: any[],
+  salesData: any[]
 }) {
-  const salesData: any[] = []; // Placeholder
 
   const kpiCards = [
     {

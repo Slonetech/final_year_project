@@ -1,4 +1,4 @@
-import { getDashboardKPIs, getRecentTransactions, getLowStockAlerts, getTopCustomers } from "@/lib/supabase/queries/dashboard";
+import { getDashboardKPIs, getRecentTransactions, getLowStockAlerts, getTopCustomers, getSalesExpensesTrend } from "@/lib/supabase/queries/dashboard";
 import DashboardClient from "./dashboard-client";
 
 export default async function DashboardPage() {
@@ -6,13 +6,15 @@ export default async function DashboardPage() {
   const transactions = await getRecentTransactions();
   const topCustomers = await getTopCustomers();
   const lowStockAlerts = await getLowStockAlerts();
+  const salesData = await getSalesExpensesTrend();
 
   return (
-    <DashboardClient 
-      kpis={kpis} 
-      transactions={transactions} 
-      topCustomers={topCustomers} 
-      lowStockAlerts={lowStockAlerts} 
+    <DashboardClient
+      kpis={kpis}
+      transactions={transactions}
+      topCustomers={topCustomers}
+      lowStockAlerts={lowStockAlerts}
+      salesData={salesData}
     />
   );
 }

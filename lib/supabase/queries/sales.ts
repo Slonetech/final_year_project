@@ -7,8 +7,8 @@ export async function getAll(query: string = "", status: string = "all") {
   let q = supabase
     .from('sales')
     .select('*, customers(name)')
-    .order('sale_date', { ascending: false })
-  
+    .order('order_date', { ascending: false })
+
   if (query) {
     q = q.or(`notes.ilike.%${query}%,customers.name.ilike.%${query}%`)
   }
@@ -18,9 +18,14 @@ export async function getAll(query: string = "", status: string = "all") {
   }
 
   const { data, error } = await q
-  
+
   if (error) throw error
-  return mapArrayToCamelCase(data) as any[]
+
+  // Map data and flatten customer name
+  return data.map(item => ({
+    ...mapToCamelCase(item),
+    customerName: item.customers?.name || ''
+  })) as any[]
 }
 
 export async function getById(id: string) {
@@ -30,9 +35,19 @@ export async function getById(id: string) {
     .select('*, customers(name), sale_items(*, inventory(name))')
     .eq('id', id)
     .single()
-  
+
   if (error) throw error
-  return mapToCamelCase(data) as any
+
+  // Map and flatten nested data
+  const mapped = mapToCamelCase(data)
+  return {
+    ...mapped,
+    customerName: data.customers?.name || '',
+    lines: data.sale_items?.map((item: any) => ({
+      ...mapToCamelCase(item),
+      productName: item.inventory?.name || ''
+    })) || []
+  } as any
 }
 
 export async function create(sale: CreateSalesOrderDto, items: any[]) {
@@ -61,10 +76,17 @@ export async function create(sale: CreateSalesOrderDto, items: any[]) {
 
   if (error) throw error
 
-  const saleItems = items.map(item => ({
-    ...mapToSnakeCase(item),
-    sale_id: data.id
-  }))
+  const saleItems = items.map(item => {
+    // Only include fields that exist in sale_items table
+    const { inventoryId, quantity, unitPrice, totalPrice } = item
+    return {
+      sale_id: data.id,
+      inventory_id: inventoryId,
+      quantity: quantity,
+      unit_price: unitPrice,
+      total_price: totalPrice
+    }
+  })
 
   const { error: itemsError } = await supabase
     .from('sale_items')

@@ -11,7 +11,6 @@ import {
   FileText,
   CreditCard,
   Package,
-  BookOpen,
   PenSquare,
   BarChart3,
   Settings,
@@ -44,14 +43,6 @@ const navigation = [
   { name: "Invoices", href: "/invoices", icon: FileText },
   { name: "Payments", href: "/payments", icon: CreditCard },
   {
-    name: "Accounting",
-    icon: BookOpen,
-    children: [
-      { name: "Chart of Accounts", href: "/accounting/chart-of-accounts" },
-      { name: "Journal Entries", href: "/accounting/journal-entries" },
-    ],
-  },
-  {
     name: "Reports",
     icon: BarChart3,
     children: [
@@ -68,7 +59,7 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const [openGroups, setOpenGroups] = useState<string[]>(["Business Partners", "Transactions", "Accounting", "Reports"]);
+  const [openGroups, setOpenGroups] = useState<string[]>(["Business Partners", "Transactions", "Reports"]);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const toggleGroup = (name: string) => {

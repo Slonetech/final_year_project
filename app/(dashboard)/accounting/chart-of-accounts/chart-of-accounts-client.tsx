@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/utils";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AccountFormDialog } from "./account-form-dialog";
 
 // Account type configuration
 const accountTypeConfig: Record<AccountType, { label: string; description: string; color: string }> = {
@@ -46,6 +47,7 @@ export default function ChartOfAccountsClient({ initialAccounts }: { initialAcco
   const [expandedTypes, setExpandedTypes] = useState<Set<AccountType>>(
     new Set(["asset", "liability", "equity", "revenue", "expense"])
   );
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const emptyTree: Record<AccountType, AccountTreeNode[]> = {
     asset: [],
@@ -279,7 +281,7 @@ export default function ChartOfAccountsClient({ initialAccounts }: { initialAcco
             View your complete account hierarchy and balances
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setDialogOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Add Account
         </Button>
@@ -345,12 +347,18 @@ export default function ChartOfAccountsClient({ initialAccounts }: { initialAcco
           <p className="text-sm text-muted-foreground mb-4">
             The chart of accounts is empty. Please add accounts to get started.
           </p>
-          <Button>
+          <Button onClick={() => setDialogOpen(true)}>
              <Plus className="w-4 h-4 mr-2" />
              Add Account
           </Button>
         </div>
       )}
+
+      <AccountFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        accounts={initialAccounts}
+      />
     </div>
   );
 }

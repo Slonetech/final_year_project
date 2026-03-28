@@ -4,19 +4,40 @@ import { mapToSnakeCase, mapToCamelCase, mapArrayToCamelCase } from '../../utils
 
 export async function getAll(type: string = "all") {
   const supabase = await createClient()
+
+  // Join with customers and suppliers to get names
   let q = supabase
     .from('payments')
-    .select('*, customers(name), invoices(invoice_number)')
+    .select(`
+      *,
+      customers(name),
+      suppliers(name)
+    `)
     .order('payment_date', { ascending: false })
-  
+
   if (type !== 'all') {
     q = q.eq('type', type)
   }
 
   const { data, error } = await q
-  
-  if (error) throw error
-  return mapArrayToCamelCase(data) as any[]
+
+  if (error) {
+    console.error('Error fetching payments:', error)
+    throw error
+  }
+
+  // Map data with proper field names for the client
+  return (data || []).map(item => ({
+    ...mapToCamelCase(item),
+    // Map field names to match Payment type
+    paymentNumber: item.payment_number || item.reference || '—',
+    date: item.payment_date,
+    method: item.method || 'cash',
+    type: item.type || 'made',
+    customerName: item.customers?.name || '',
+    supplierName: item.suppliers?.name || '',
+    amount: Number(item.amount) || 0,
+  })) as any[]
 }
 
 export async function getById(id: string) {

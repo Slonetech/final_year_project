@@ -82,6 +82,7 @@ export default function InvoicesClient({
       draft: { variant: "secondary" as const, className: "bg-gray-100 text-gray-800" },
       sent: { variant: "default" as const, className: "bg-blue-100 text-blue-800" },
       paid: { variant: "default" as const, className: "bg-green-100 text-green-800" },
+      unpaid: { variant: "secondary" as const, className: "bg-yellow-100 text-yellow-800" },
       overdue: { variant: "destructive" as const, className: "bg-red-100 text-red-800" },
       cancelled: { variant: "secondary" as const, className: "bg-gray-100 text-gray-600" },
     };
@@ -131,9 +132,8 @@ export default function InvoicesClient({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
                 <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="unpaid">Unpaid</SelectItem>
                 <SelectItem value="overdue">Overdue</SelectItem>
               </SelectContent>
             </Select>

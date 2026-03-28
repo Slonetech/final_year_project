@@ -39,7 +39,7 @@ npm install
 ### 2. Environment is Already Configured
 Your `.env.local` file is set up with:
 - ✅ Supabase credentials
-- ⏳ PayHero credentials (add when ready)
+- ✅ Application configuration
 
 ### 3. Set Up Database
 
@@ -72,9 +72,11 @@ Visit: http://localhost:3000
 - ✅ Dashboard
 - ✅ Customers
 - ✅ Suppliers
-- ✅ Products
+- ✅ Inventory
+- ✅ Sales Orders
+- ✅ Purchase Orders
 - ✅ Invoices
-- ✅ Payments (needs PayHero credentials)
+- ✅ Payments
 - ✅ Reports
 
 ## 📋 Pre-Production Checklist
@@ -84,12 +86,8 @@ Before deploying to production:
 - [ ] Complete Supabase setup
   - [ ] Database tables created
   - [ ] Row Level Security enabled
-  - [ ] Data seeded
-- [ ] Get PayHero credentials
-  - [ ] Sign up at https://payhero.co.ke
-  - [ ] Get API credentials
-  - [ ] Add to `.env.local`
-  - [ ] Configure webhook URL
+  - [ ] Migrations applied
+  - [ ] Data seeded (optional)
 - [ ] Review documentation
   - [ ] Read [DEPLOYMENT.md](./DEPLOYMENT.md)
   - [ ] Review [SECURITY.md](./SECURITY.md)
@@ -173,31 +171,30 @@ PORT=3001 npm run dev
 ## 🎯 Next Steps
 
 1. **Set up database** (see step 3 above)
-2. **Test locally** (run through all features)
-3. **Get PayHero credentials** (when ready to accept payments)
+2. **Apply migrations** (especially 003_fix_inventory_and_sales_schema.sql and 004_fix_purchases_schema.sql)
+3. **Test locally** (run through all features)
 4. **Deploy** (follow [DEPLOYMENT.md](./DEPLOYMENT.md))
 
 ## 💡 Tips
 
 - Keep `.env.local` updated but never commit it
-- Test payment flows with small amounts first (KES 10)
-- Monitor `/api/health` endpoint in production
+- Apply all database migrations before starting
+- Test all features thoroughly before deploying
+- Monitor application health in production
 - Set up error tracking (Sentry recommended)
 - Enable Vercel Analytics if using Vercel
 
 ## ✨ Production-Ready Features
 
 Your app includes:
-- 🔐 Authentication & authorization
-- 🛡️ Rate limiting
-- ✅ Input validation
-- 🔑 Webhook verification
-- ❤️ Health checks
-- 📊 Metrics
+- 🔐 Authentication & authorization (Supabase Auth)
+- 🛡️ Row Level Security (RLS)
+- ✅ Input validation (Zod schemas)
 - 🚨 Error boundaries
-- 📝 Structured logging
-- 🐳 Docker support
-- 🔄 CI/CD pipeline
+- 📝 Form validation
+- 🎨 Modern UI (Shadcn/ui + Tailwind)
+- 📊 Real-time updates (React Query)
+- 🔄 Auto-generated order numbers
 
 **You're ready to go! 🎉**
 

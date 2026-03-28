@@ -7,8 +7,8 @@ export async function getAll(query: string = "", status: string = "all") {
   let q = supabase
     .from('purchases')
     .select('*, suppliers(name)')
-    .order('purchase_date', { ascending: false })
-  
+    .order('order_date', { ascending: false })
+
   if (query) {
     q = q.or(`notes.ilike.%${query}%,suppliers.name.ilike.%${query}%`)
   }
@@ -18,9 +18,14 @@ export async function getAll(query: string = "", status: string = "all") {
   }
 
   const { data, error } = await q
-  
+
   if (error) throw error
-  return mapArrayToCamelCase(data) as any[]
+
+  // Map data and flatten supplier name
+  return data.map(item => ({
+    ...mapToCamelCase(item),
+    supplierName: item.suppliers?.name || ''
+  })) as any[]
 }
 
 export async function getById(id: string) {
@@ -30,9 +35,19 @@ export async function getById(id: string) {
     .select('*, suppliers(name), purchase_items(*, inventory(name))')
     .eq('id', id)
     .single()
-  
+
   if (error) throw error
-  return mapToCamelCase(data) as any
+
+  // Map and flatten nested data
+  const mapped = mapToCamelCase(data)
+  return {
+    ...mapped,
+    supplierName: data.suppliers?.name || '',
+    lines: data.purchase_items?.map((item: any) => ({
+      ...mapToCamelCase(item),
+      productName: item.inventory?.name || ''
+    })) || []
+  } as any
 }
 
 export async function create(purchase: CreatePurchaseOrderDto, items: any[]) {
@@ -50,10 +65,17 @@ export async function create(purchase: CreatePurchaseOrderDto, items: any[]) {
 
   if (error) throw error
 
-  const purchaseItems = items.map(item => ({
-    ...mapToSnakeCase(item),
-    purchase_id: data.id
-  }))
+  const purchaseItems = items.map(item => {
+    // Only include fields that exist in purchase_items table
+    const { inventoryId, quantity, unitPrice, totalPrice } = item
+    return {
+      purchase_id: data.id,
+      inventory_id: inventoryId,
+      quantity: quantity,
+      unit_price: unitPrice,
+      total_price: totalPrice
+    }
+  })
 
   const { error: itemsError } = await supabase
     .from('purchase_items')

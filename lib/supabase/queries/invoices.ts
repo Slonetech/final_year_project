@@ -4,19 +4,48 @@ import { mapToSnakeCase, mapToCamelCase, mapArrayToCamelCase } from '../../utils
 
 export async function getAll(status: string = "all") {
   const supabase = await createClient()
+
+  // Fetch invoices with customer info and related payments
   let q = supabase
     .from('invoices')
-    .select('*, customers(name)')
+    .select(`
+      *,
+      customers(name, email, address),
+      payments(amount)
+    `)
     .order('issue_date', { ascending: false })
-  
+
   if (status !== 'all') {
     q = q.eq('status', status)
   }
 
   const { data, error } = await q
-  
+
   if (error) throw error
-  return mapArrayToCamelCase(data) as any[]
+
+  // Map data and flatten customer name + calculate payment amounts
+  return data.map(item => {
+    const totalAmount = Number(item.total_amount) || 0;
+    // Calculate amount paid from related payments
+    const amountPaid = item.payments?.reduce((sum: number, payment: any) =>
+      sum + (Number(payment.amount) || 0), 0) || 0;
+    const amountDue = totalAmount - amountPaid;
+
+    return {
+      ...mapToCamelCase(item),
+      customerName: item.customers?.name || '',
+      customerEmail: item.customers?.email || '',
+      customerAddress: item.customers?.address || '',
+      // Match what the client expects
+      total: totalAmount,
+      totalAmount, // Keep both for compatibility
+      amountPaid,
+      amountDue: Math.max(0, amountDue), // Don't show negative
+      // Ensure date fields match client expectations
+      invoiceDate: item.issue_date,
+      invoiceNumber: item.invoice_number,
+    };
+  }) as any[]
 }
 
 export async function getById(id: string) {
@@ -26,9 +55,18 @@ export async function getById(id: string) {
     .select('*, customers(name), sales(*, sale_items(*, inventory(name)))')
     .eq('id', id)
     .single()
-  
+
   if (error) throw error
-  return mapToCamelCase(data) as any
+
+  // Map and flatten nested data
+  const mapped = mapToCamelCase(data)
+  return {
+    ...mapped,
+    customerName: data.customers?.name || '',
+    totalAmount: Number(data.total_amount) || 0,
+    amountPaid: Number(data.amount_paid) || 0,
+    amountDue: Number(data.amount_due) || 0,
+  } as any
 }
 
 export async function create(invoice: any) {

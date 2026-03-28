@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { SalesOrder, SalesOrderStatus } from "@/lib/types";
+import { SalesOrder, SalesOrderStatus, Customer, Product } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,6 +33,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { MoreHorizontal, Plus, Search, Eye, Trash2 } from "lucide-react";
 import { deleteSalesOrderAction } from "./actions";
 import { toast } from "sonner";
+import { SalesOrderFormDialog } from "./sales-order-form-dialog";
 
 const statusColor: Record<string, string> = {
     quote: "bg-muted text-muted-foreground border",
@@ -41,20 +42,25 @@ const statusColor: Record<string, string> = {
     paid: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
 };
 
-export default function SalesClient({ 
-  initialOrders, 
-  query, 
-  status 
-}: { 
-  initialOrders: SalesOrder[]; 
-  query: string; 
-  status: string; 
+export default function SalesClient({
+  initialOrders,
+  query,
+  status,
+  customers,
+  products,
+}: {
+  initialOrders: SalesOrder[];
+  query: string;
+  status: string;
+  customers: Customer[];
+  products: Product[];
 }) {
     const router = useRouter();
     const pathname = usePathname();
     const [isPending, startTransition] = useTransition();
     const [searchQuery, setSearchQuery] = useState(query);
     const [statusFilter, setStatusFilter] = useState(status);
+    const [dialogOpen, setDialogOpen] = useState(false);
 
     const updateFilters = (newQuery: string, newStatus: string) => {
         startTransition(() => {
@@ -93,7 +99,7 @@ export default function SalesClient({
                     <h1 className="text-3xl font-bold tracking-tight">Sales</h1>
                     <p className="text-muted-foreground">Manage your sales orders</p>
                 </div>
-                <Button>
+                <Button onClick={() => setDialogOpen(true)}>
                     <Plus className="w-4 h-4 mr-2" />
                     New Sales Order
                 </Button>
@@ -206,7 +212,7 @@ export default function SalesClient({
                                     : "Get started by creating your first sales order"}
                             </p>
                             {!searchQuery && statusFilter === "all" && (
-                                <Button>
+                                <Button onClick={() => setDialogOpen(true)}>
                                     <Plus className="w-4 h-4 mr-2" />
                                     New Sales Order
                                 </Button>
@@ -215,6 +221,13 @@ export default function SalesClient({
                     )}
                 </CardContent>
             </Card>
+
+            <SalesOrderFormDialog
+                open={dialogOpen}
+                onOpenChange={setDialogOpen}
+                customers={customers}
+                products={products}
+            />
         </div>
     );
 }

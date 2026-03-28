@@ -33,6 +33,36 @@ export async function createAccount(account: any) {
   return mapToCamelCase(data) as Account
 }
 
+export const create = createAccount;
+
+export async function updateAccount(id: string, account: any) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('chart_of_accounts')
+    .update(mapToSnakeCase(account))
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return mapToCamelCase(data) as Account
+}
+
+export const update = updateAccount;
+
+export async function deleteAccount(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('chart_of_accounts')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw error
+  return { success: true }
+}
+
+export const remove = deleteAccount;
+
 // Journal Entries
 export async function getAllJournalEntries() {
   const supabase = await createClient()

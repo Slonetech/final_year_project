@@ -17,7 +17,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Download, Printer, Calendar as CalendarIcon } from "lucide-react";
+import { exportBalanceSheetToExcel } from "@/lib/utils/excel-export";
+import { Printer, Calendar as CalendarIcon, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -45,10 +46,23 @@ export default function BalanceSheetClient({
   };
 
   const handlePrint = () => window.print();
-  const handleExport = () => toast.success("Exporting to PDF feature comming soon...");
+
+  const handleExportExcel = () => {
+    try {
+      exportBalanceSheetToExcel(
+        initialData,
+        date,
+        `balance-sheet-${format(date, "yyyy-MM-dd")}.xlsx`
+      );
+      toast.success("Balance Sheet exported to Excel successfully");
+    } catch (error) {
+      toast.error("Failed to export Excel");
+      console.error(error);
+    }
+  };
 
   return (
-        <div className="space-y-6">
+        <div id="balance-sheet-report" className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between print:hidden">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Balance Sheet</h1>
@@ -75,9 +89,9 @@ export default function BalanceSheetClient({
                         <Printer className="w-4 h-4 mr-2" />
                         Print
                     </Button>
-                    <Button onClick={handleExport}>
-                        <Download className="w-4 h-4 mr-2" />
-                        Export to PDF
+                    <Button variant="outline" onClick={handleExportExcel}>
+                        <FileSpreadsheet className="w-4 h-4 mr-2" />
+                        Export to Excel
                     </Button>
                 </div>
             </div>

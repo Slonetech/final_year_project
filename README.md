@@ -1,29 +1,32 @@
 # FinPal ERP System
 
-A comprehensive ERP system built with Next.js 16, featuring integrated PayHero payment gateway support for seamless M-Pesa and card payments.
+A comprehensive ERP system built with Next.js 16 for managing business operations including customers, suppliers, inventory, sales, purchases, and accounting.
 
 ## Features
 
 - 📊 **Dashboard** - Real-time financial KPIs and analytics
 - 👥 **Customer & Supplier Management** - Complete CRM functionality
 - 📦 **Inventory Management** - Product tracking and stock alerts
+- 🛒 **Sales Orders** - Create and manage sales orders
+- 📥 **Purchase Orders** - Track supplier orders and deliveries
 - 🧾 **Invoicing** - Professional invoice generation
-- 💳 **Payments** - PayHero integration for M-Pesa and card payments
+- 💳 **Payments** - Track payments received and made
 - 📈 **Reporting** - Trial balance, aged receivables/payables
 - 🏦 **Accounting** - Chart of accounts and journal entries
 
 ## Tech Stack
 
 - **Frontend**: Next.js 16 (App Router), React 19, TypeScript
+- **Database**: Supabase (PostgreSQL)
 - **UI**: Shadcn/ui, Tailwind CSS v4
 - **State Management**: TanStack React Query
-- **Payment Gateway**: PayHero API
 - **Forms**: React Hook Form + Zod validation
+- **Authentication**: Supabase Auth
 
 ## Prerequisites
 
 - Node.js 18+ and npm
-- PayHero account with API credentials ([Get started](https://payhero.co.ke))
+- Supabase account ([Get started](https://supabase.com))
 
 ## Installation
 
@@ -43,78 +46,55 @@ npm install
 Create a `.env.local` file in the root directory:
 
 ```bash
-# PayHero API Credentials
-PAYHERO_API_USERNAME=your_api_username
-PAYHERO_API_PASSWORD=your_api_password
-PAYHERO_ACCOUNT_ID=your_account_id
-PAYHERO_BASE_URL=https://api.payhero.co.ke
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+
+# Database connection string (for migrations)
+DATABASE_URL=postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
 
 # Application Configuration
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+NODE_ENV=development
 ```
 
 > ⚠️ **Security**: Never commit `.env.local` to version control. It's already in `.gitignore`.
 
-4. **Run the development server**
+4. **Run database migrations**
+
+First, run the migrations in your Supabase Dashboard SQL Editor, or if you have DATABASE_URL configured:
+
+```bash
+npm run migrate
+```
+
+The migrations will set up:
+- All database tables (customers, suppliers, inventory, sales, purchases, payments, accounting)
+- Row Level Security (RLS) policies
+- Triggers and functions
+- Seed data (optional)
+
+5. **Run the development server**
 ```bash
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## PayHero Integration
-
-### Setup Instructions
-
-1. **Get API Credentials**
-   - Log in to your [PayHero Dashboard](https://dashboard.payhero.co.ke)
-   - Navigate to **Settings > API Keys**
-   - Copy your API Username, Password, and Account ID
-   - Add them to `.env.local` as shown above
-
-2. **Configure Webhook** (for payment status updates)
-   - In PayHero Dashboard, go to **Settings > Webhooks**
-   - Add webhook URL: `https://your-domain.com/api/payments/webhook`
-   - Select events: `payment.success`, `payment.failed`, `payment.cancelled`
-   - Save configuration
-
-3. **Test Payment Flow**
-   - Navigate to **Payments** page
-   - Click **"PayHero Payment"** button
-   - Select customer and enter amount
-   - Enter phone number (format: `0712345678` or `254712345678`)
-   - Click **"Initiate Payment"**
-   - Check your phone for M-Pesa STK push
-   - Enter PIN to complete payment
-   - Watch real-time status updates in the UI
-
-### Payment Methods Supported
-
-- **M-Pesa** - Kenyan mobile money (Safaricom)
-- **Credit/Debit Cards** - Visa, Mastercard (coming soon)
-
-### Phone Number Format
-
-PayHero accepts Kenyan phone numbers in these formats:
-- `0712345678` (will be converted to `254712345678`)
-- `254712345678` (preferred format)
-- `+254712345678` (will be converted to `254712345678`)
-
 ## Project Structure
 
 ```
 erp-finpal-system/
 ├── app/
-│   ├── api/                    # Next.js API routes
-│   │   └── payments/          # PayHero payment endpoints
-│   │       ├── initiate/      # POST - Start payment
-│   │       ├── [reference]/   # GET - Check status
-│   │       ├── webhook/       # POST - Receive updates
-│   │       └── history/       # GET - List transactions
+│   ├── (auth)/                # Authentication pages
+│   │   ├── login/
+│   │   └── signup/
 │   └── (dashboard)/           # Dashboard pages
 │       ├── customers/
 │       ├── suppliers/
 │       ├── inventory/
+│       ├── sales/
+│       ├── purchases/
 │       ├── invoices/
 │       ├── payments/
 │       ├── accounting/
@@ -122,97 +102,72 @@ erp-finpal-system/
 ├── components/
 │   ├── ui/                    # Shadcn components
 │   └── dashboard/             # Custom components
-│       ├── payhero-payment-dialog.tsx
-│       └── payment-status-badge.tsx
-├── hooks/
-│   ├── use-payments.ts        # Payment CRUD hooks
-│   └── use-payhero.ts         # PayHero integration hooks
 ├── lib/
-│   ├── services/
-│   │   └── payhero/          # PayHero service layer
-│   │       ├── types.ts      # TypeScript types
-│   │       ├── client.ts     # API client
-│   │       ├── payments.ts   # Payment service
-│   │       └── webhooks.ts   # Webhook handler
-│   ├── types.ts              # Global types
+│   ├── supabase/             # Supabase client & queries
+│   │   ├── server.ts         # Server-side client
+│   │   ├── client.ts         # Client-side client
+│   │   └── queries/          # Database queries
+│   ├── types.ts              # Global TypeScript types
 │   └── utils.ts              # Utility functions
-└── .env.local                # Environment variables (not in git)
+├── supabase/
+│   ├── migrations/           # Database migrations
+│   └── seed.sql             # Seed data
+└── .env.local               # Environment variables (not in git)
 ```
 
 ## Available Scripts
 
-- `npm run dev` - Start development server
+- `npm run dev` - Start development server with Turbopack
 - `npm run build` - Build for production
 - `npm start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm run migrate` - Run database migrations
 
-## API Endpoints
+## Key Features
 
-### Payment Endpoints
+### Authentication
+- Supabase Auth with email/password
+- Row Level Security (RLS) for data isolation
+- User-specific data access
 
-#### Initiate Payment
-```http
-POST /api/payments/initiate
-Content-Type: application/json
+### Inventory Management
+- Product catalog with SKU tracking
+- Stock level monitoring
+- Reorder point alerts
+- Cost and selling price management
 
-{
-  "amount": 1000,
-  "phone_number": "254712345678",
-  "provider": "m-pesa",
-  "external_reference": "INV-001"
-}
-```
+### Sales & Purchases
+- Create sales and purchase orders
+- Auto-generate order numbers (SO-XXXXXX, PO-XXXXXX)
+- Line item management
+- Tax calculations
+- Order status tracking
 
-#### Check Payment Status
-```http
-GET /api/payments/{transaction_reference}/status
-```
+### Payments
+- Record payments received from customers
+- Track payments made to suppliers
+- Multiple payment methods (Cash, M-Pesa, Bank Transfer, Cheque)
+- Payment reconciliation
 
-#### Payment Webhook
-```http
-POST /api/payments/webhook
-Content-Type: application/json
-
-{
-  "event": "payment.success",
-  "transaction_id": "...",
-  "transaction_reference": "...",
-  "amount": 1000,
-  "status": "success"
-}
-```
-
-#### Transaction History
-```http
-GET /api/payments/history?page=1&limit=20&status=success
-```
+### Accounting
+- Chart of Accounts
+- Journal Entries
+- Trial Balance
+- Financial Reports
 
 ## Troubleshooting
 
-### PayHero Payment Issues
+### Database Connection Issues
 
-**M-Pesa STK Push Not Received**
-- Verify phone number format is correct
-- Ensure phone has network coverage
-- Check M-Pesa service is available
-- Try again after 1-2 minutes
+**Can't connect to Supabase**
+- Verify credentials in `.env.local`
+- Check Supabase project is active
+- Ensure database password is correct
 
-**Payment Status Stuck on "Pending"**
-- User may have cancelled on their phone
-- Check PayHero dashboard for transaction status
-- Status updates automatically every 3 seconds
-- Payments auto-expire after 5 minutes
-
-**Authentication Failed**
-- Double-check API credentials in `.env.local`
-- Ensure no extra spaces in environment variables
-- Restart development server after changing `.env.local`
-
-**Webhook Not Working**
-- Verify webhook URL is publicly accessible
-- Check webhook is configured in PayHero dashboard
-- Review server logs for incoming webhook requests
-- Test webhook endpoint: `GET /api/payments/webhook` should return 200
+**Migration Errors**
+- Check if migrations already ran
+- Verify DATABASE_URL format
+- Run migrations manually in Supabase SQL Editor
 
 ### Development Issues
 
@@ -225,7 +180,7 @@ npm run dev
 
 **Type Errors**
 ```bash
-# Regenerate TypeScript types
+# Reinstall dependencies
 rm -rf node_modules
 npm install
 ```
@@ -234,9 +189,9 @@ npm install
 
 1. **Never commit API credentials** - They're in `.env.local` which is gitignored
 2. **Use environment variables** - All secrets should be in `.env.*` files
-3. **Verify webhooks** - Signature verification is implemented (update secret key)
-4. **HTTPS in production** - Always use HTTPS for webhook endpoints
-5. **Validate inputs** - All payment amounts and phone numbers are validated
+3. **Enable RLS** - Row Level Security is enforced on all tables
+4. **HTTPS in production** - Always use HTTPS for production deployments
+5. **Validate inputs** - All forms use Zod validation
 
 ## Production Deployment
 
@@ -246,7 +201,6 @@ npm install
 2. Import project in [Vercel](https://vercel.com)
 3. Add environment variables in Vercel dashboard
 4. Deploy
-5. Update PayHero webhook URL with your Vercel domain
 
 ### Manual Deployment
 
@@ -259,34 +213,33 @@ Set environment variables on your hosting platform.
 
 ## Testing
 
-### Test Credentials
-
-For development/testing, use small amounts (KES 10-50) to verify the integration works correctly.
-
 ### Test Scenarios
 
-1. **Successful Payment**
-   - Initiate payment with valid phone and amount
-   - Complete M-Pesa prompt on phone
-   - Verify status updates to "success"
+1. **User Registration & Login**
+   - Create new user account
+   - Login with credentials
+   - Verify authentication
 
-2. **Failed Payment**
-   - Initiate payment
-   - Cancel M-Pesa prompt
-   - Verify status updates to "failed" or "cancelled"
+2. **Inventory Management**
+   - Add new products
+   - Update stock levels
+   - Check reorder alerts
 
-3. **Expired Payment**
-   - Initiate payment
-   - Don't respond to M-Pesa prompt
-   - Wait 5+ minutes
-   - Verify status updates to "expired"
+3. **Order Processing**
+   - Create sales orders
+   - Create purchase orders
+   - Track order status
+
+4. **Payment Recording**
+   - Record customer payments
+   - Record supplier payments
+   - View payment history
 
 ## Support
 
 For issues or questions:
 - 📧 Email: support@finpal.co.ke
-- 💬 PayHero Support: [support.payhero.co.ke](https://support.payhero.co.ke)
-- 📖 PayHero Docs: [docs.payhero.co.ke](https://docs.payhero.co.ke)
+- 🐛 GitHub Issues: [Report a bug](https://github.com/your-repo/issues)
 
 ## License
 
@@ -302,4 +255,4 @@ MIT License - see LICENSE file for details
 
 ---
 
-**Built with ❤️ for the Kenyan market**
+**Built with ❤️ for small and medium businesses**
