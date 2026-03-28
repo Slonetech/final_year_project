@@ -145,6 +145,18 @@ function CompanyProfileTab() {
 
   const form = useForm<CompanyProfileFormData>({
     resolver: zodResolver(companyProfileSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      city: "",
+      country: "",
+      pin: "",
+      paybillNumber: "",
+      tillNumber: "",
+      website: "",
+    },
     values: companySettings
       ? {
           name: companySettings.name,
@@ -368,6 +380,15 @@ function TaxSettingsTab() {
 
   const form = useForm<TaxSettingsFormData>({
     resolver: zodResolver(taxSettingsSchema),
+    defaultValues: {
+      vatRate: 0,
+      withholdingTaxRates: {
+        professionalFees: 0,
+        supplies: 0,
+        rent: 0,
+        commissions: 0,
+      },
+    },
     values: taxSettings
       ? {
           vatRate: taxSettings.vatRate,
@@ -564,6 +585,13 @@ function InvoiceSettingsTab() {
 
   const form = useForm<InvoiceSettingsFormData>({
     resolver: zodResolver(invoiceSettingsSchema),
+    defaultValues: {
+      invoicePrefix: "",
+      nextInvoiceNumber: 1,
+      paymentTerms: "",
+      termsAndConditions: "",
+      footerText: "",
+    },
     values: invoiceSettings
       ? {
           invoicePrefix: invoiceSettings.invoicePrefix,
