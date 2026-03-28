@@ -3,8 +3,15 @@
 import { useAuth } from "@/lib/providers/auth-provider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Sidebar } from "@/components/dashboard/sidebar";
-import { Header } from "@/components/dashboard/header";
+import dynamic from "next/dynamic";
+
+const Sidebar = dynamic(() => import("@/components/dashboard/sidebar").then(mod => mod.Sidebar), {
+  loading: () => <div className="hidden lg:block w-64 h-screen bg-muted animate-pulse" />,
+});
+
+const Header = dynamic(() => import("@/components/dashboard/header").then(mod => mod.Header), {
+  loading: () => <div className="h-16 border-b bg-background animate-pulse" />,
+});
 
 export default function DashboardLayout({
   children,

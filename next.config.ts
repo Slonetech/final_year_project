@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    turbo: {}
-  }
+  // Turbo is now enabled via the --turbo flag in package.json
 };
 
 export default nextConfig;

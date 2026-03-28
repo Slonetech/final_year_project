@@ -1,53 +1,68 @@
-import { createClient } from '../server';
-import { Invoice } from '@/lib/types';
+import { createClient } from '../server'
+import { Invoice, CreateInvoiceDto } from '@/lib/types'
+import { mapToSnakeCase, mapToCamelCase, mapArrayToCamelCase } from '../../utils/mapping'
 
-const mapFromDb = (data: any): Invoice => {
-  return {
-    id: data.id,
-    invoiceNumber: data.invoice_number,
-    customerId: data.customer_id || '',
-    customerName: data.customers?.name || 'Unknown Customer',
-    salesOrderId: data.sale_id || undefined,
-    invoiceDate: data.issue_date,
-    dueDate: data.due_date,
-    status: (data.status || 'draft') as any,
-    items: [],
-    subtotal: data.total_amount || 0,
-    tax: 0,
-    total: data.total_amount || 0,
-    amountPaid: 0, // This would ideally be computed from payments table
-    amountDue: data.total_amount || 0,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
-};
-
-export async function getAll(status?: string) {
-  const supabase = await createClient();
-  let q = supabase.from('invoices').select('*, customers(name)').order('issue_date', { ascending: false });
+export async function getAll(status: string = "all") {
+  const supabase = await createClient()
+  let q = supabase
+    .from('invoices')
+    .select('*, customers(name)')
+    .order('issue_date', { ascending: false })
   
-  if (status && status !== 'all') {
-    q = q.eq('status', status);
+  if (status !== 'all') {
+    q = q.eq('status', status)
   }
+
+  const { data, error } = await q
   
-  const { data, error } = await q;
-  if (error) throw error;
-  
-  return (data || []).map(mapFromDb);
+  if (error) throw error
+  return mapArrayToCamelCase(data) as any[]
 }
 
 export async function getById(id: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('invoices').select('*, customers(name)').eq('id', id).single();
-  if (error) throw error;
-  return mapFromDb(data);
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('invoices')
+    .select('*, customers(name), sales(*, sale_items(*, inventory(name)))')
+    .eq('id', id)
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data) as any
+}
+
+export async function create(invoice: any) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('invoices')
+    .insert(mapToSnakeCase(invoice))
+    .select()
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data)
+}
+
+export async function update(id: string, invoice: any) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('invoices')
+    .update(mapToSnakeCase(invoice))
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data)
 }
 
 export async function remove(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from('invoices').delete().eq('id', id);
-  if (error) throw error;
-  return true;
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('invoices')
+    .delete()
+    .eq('id', id)
+  
+  if (error) throw error
+  return { success: true }
 }
-
-export { remove as delete };

@@ -1,218 +1,203 @@
--- Create initial schema for FinPal ERP System
+-- Initial ERP Schema
 
--- Extensions
+-- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Function to handle updated_at triggers
-CREATE OR REPLACE FUNCTION handle_updated_at()
+-- Create updated_at function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
+    NEW.updated_at = NOW();
+    RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ language 'plpgsql';
 
--- 1. Customers
-CREATE TABLE public.customers (
+-- CUSTOMERS
+CREATE TABLE customers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255),
-    phone VARCHAR(50),
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
     address TEXT,
-    city VARCHAR(100),
-    country VARCHAR(100),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    city TEXT,
+    country TEXT,
+    pin TEXT,
+    payment_terms INTEGER,
+    credit_limit DECIMAL(12,2),
+    balance DECIMAL(12,2) DEFAULT 0,
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TRIGGER handle_updated_at_customers
-    BEFORE UPDATE ON public.customers
-    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+CREATE TRIGGER update_customers_updated_at BEFORE UPDATE ON customers FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
-
--- 2. Suppliers
-CREATE TABLE public.suppliers (
+-- SUPPLIERS
+CREATE TABLE suppliers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255),
-    phone VARCHAR(50),
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
     address TEXT,
-    city VARCHAR(100),
-    country VARCHAR(100),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    city TEXT,
+    country TEXT,
+    pin TEXT,
+    payment_terms INTEGER,
+    credit_limit DECIMAL(12,2),
+    balance DECIMAL(12,2) DEFAULT 0,
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TRIGGER handle_updated_at_suppliers
-    BEFORE UPDATE ON public.suppliers
-    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+ALTER TABLE suppliers ENABLE ROW LEVEL SECURITY;
+CREATE TRIGGER update_suppliers_updated_at BEFORE UPDATE ON suppliers FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-ALTER TABLE public.suppliers ENABLE ROW LEVEL SECURITY;
-
--- 3. Inventory
-CREATE TABLE public.inventory (
+-- INVENTORY
+CREATE TABLE inventory (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(255) NOT NULL,
-    sku VARCHAR(100) UNIQUE,
+    name TEXT NOT NULL,
+    sku TEXT UNIQUE NOT NULL,
     description TEXT,
+    category TEXT,
+    unit TEXT,
     quantity INTEGER DEFAULT 0,
-    unit_price DECIMAL(12,2) NOT NULL,
-    reorder_level INTEGER DEFAULT 5,
-    supplier_id UUID REFERENCES public.suppliers(id) ON DELETE SET NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    cost_price DECIMAL(12,2) DEFAULT 0.00,
+    selling_price DECIMAL(12,2) DEFAULT 0.00,
+    reorder_level INTEGER DEFAULT 10,
+    status TEXT DEFAULT 'active',
+    supplier_id UUID REFERENCES suppliers(id),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TRIGGER handle_updated_at_inventory
-    BEFORE UPDATE ON public.inventory
-    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
+CREATE TRIGGER update_inventory_updated_at BEFORE UPDATE ON inventory FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-ALTER TABLE public.inventory ENABLE ROW LEVEL SECURITY;
-
--- 4. Purchases
-CREATE TABLE public.purchases (
+-- PURCHASES
+CREATE TABLE purchases (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    supplier_id UUID REFERENCES public.suppliers(id) ON DELETE CASCADE,
-    purchase_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    status VARCHAR(50) DEFAULT 'pending',
-    total_amount DECIMAL(12,2) DEFAULT 0,
+    supplier_id UUID REFERENCES suppliers(id),
+    purchase_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status TEXT DEFAULT 'pending',
+    total_amount DECIMAL(12,2) DEFAULT 0.00,
     notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TRIGGER handle_updated_at_purchases
-    BEFORE UPDATE ON public.purchases
-    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+ALTER TABLE purchases ENABLE ROW LEVEL SECURITY;
+CREATE TRIGGER update_purchases_updated_at BEFORE UPDATE ON purchases FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-ALTER TABLE public.purchases ENABLE ROW LEVEL SECURITY;
-
--- 5. Purchase Items
-CREATE TABLE public.purchase_items (
+-- PURCHASE ITEMS
+CREATE TABLE purchase_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    purchase_id UUID REFERENCES public.purchases(id) ON DELETE CASCADE,
-    inventory_id UUID REFERENCES public.inventory(id) ON DELETE RESTRICT,
+    purchase_id UUID REFERENCES purchases(id) ON DELETE CASCADE,
+    inventory_id UUID REFERENCES inventory(id),
     quantity INTEGER NOT NULL,
     unit_price DECIMAL(12,2) NOT NULL,
     total_price DECIMAL(12,2) NOT NULL
 );
 
-ALTER TABLE public.purchase_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE purchase_items ENABLE ROW LEVEL SECURITY;
 
--- 6. Sales
-CREATE TABLE public.sales (
+-- SALES
+CREATE TABLE sales (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
-    sale_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    status VARCHAR(50) DEFAULT 'completed',
-    total_amount DECIMAL(12,2) DEFAULT 0,
+    customer_id UUID REFERENCES customers(id),
+    sale_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status TEXT DEFAULT 'pending',
+    total_amount DECIMAL(12,2) DEFAULT 0.00,
     notes TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TRIGGER handle_updated_at_sales
-    BEFORE UPDATE ON public.sales
-    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+ALTER TABLE sales ENABLE ROW LEVEL SECURITY;
+CREATE TRIGGER update_sales_updated_at BEFORE UPDATE ON sales FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
-
--- 7. Sale Items
-CREATE TABLE public.sale_items (
+-- SALE ITEMS
+CREATE TABLE sale_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    sale_id UUID REFERENCES public.sales(id) ON DELETE CASCADE,
-    inventory_id UUID REFERENCES public.inventory(id) ON DELETE RESTRICT,
+    sale_id UUID REFERENCES sales(id) ON DELETE CASCADE,
+    inventory_id UUID REFERENCES inventory(id),
     quantity INTEGER NOT NULL,
     unit_price DECIMAL(12,2) NOT NULL,
     total_price DECIMAL(12,2) NOT NULL
 );
 
-ALTER TABLE public.sale_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 
--- 8. Invoices
-CREATE TABLE public.invoices (
+-- INVOICES
+CREATE TABLE invoices (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
-    sale_id UUID REFERENCES public.sales(id) ON DELETE CASCADE,
-    invoice_number VARCHAR(100) UNIQUE NOT NULL,
-    issue_date DATE NOT NULL,
-    due_date DATE NOT NULL,
-    status VARCHAR(50) DEFAULT 'unpaid',
-    total_amount DECIMAL(12,2) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    customer_id UUID REFERENCES customers(id),
+    sale_id UUID REFERENCES sales(id),
+    invoice_number TEXT UNIQUE NOT NULL,
+    issue_date DATE DEFAULT CURRENT_DATE,
+    due_date DATE,
+    status TEXT DEFAULT 'unpaid',
+    total_amount DECIMAL(12,2) DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TRIGGER handle_updated_at_invoices
-    BEFORE UPDATE ON public.invoices
-    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON invoices FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
-ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
-
--- 9. Payments
-CREATE TABLE public.payments (
+-- PAYMENTS
+CREATE TABLE payments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    invoice_id UUID REFERENCES public.invoices(id) ON DELETE CASCADE,
-    customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
-    payment_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    invoice_id UUID REFERENCES invoices(id),
+    customer_id UUID REFERENCES customers(id),
+    payment_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     amount DECIMAL(12,2) NOT NULL,
-    payment_method VARCHAR(100),
-    reference VARCHAR(255),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    payment_method TEXT,
+    reference TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
--- 10. Chart of Accounts
-CREATE TABLE public.chart_of_accounts (
+-- CHART OF ACCOUNTS
+CREATE TABLE chart_of_accounts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    account_code VARCHAR(50) UNIQUE NOT NULL,
-    account_name VARCHAR(255) NOT NULL,
-    account_type VARCHAR(100) NOT NULL,
-    parent_id UUID REFERENCES public.chart_of_accounts(id) ON DELETE SET NULL,
-    is_active BOOLEAN DEFAULT true,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    account_code TEXT UNIQUE NOT NULL,
+    account_name TEXT NOT NULL,
+    account_type TEXT NOT NULL, -- Asset, Liability, Equity, Revenue, Expense
+    parent_id UUID REFERENCES chart_of_accounts(id),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-ALTER TABLE public.chart_of_accounts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chart_of_accounts ENABLE ROW LEVEL SECURITY;
 
--- 11. Journal Entries
-CREATE TABLE public.journal_entries (
+-- JOURNAL ENTRIES
+CREATE TABLE journal_entries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    entry_date DATE NOT NULL,
-    description TEXT NOT NULL,
-    reference VARCHAR(255),
-    total_debit DECIMAL(12,2) NOT NULL,
-    total_credit DECIMAL(12,2) NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    entry_date DATE DEFAULT CURRENT_DATE,
+    description TEXT,
+    reference TEXT,
+    total_debit DECIMAL(12,2) DEFAULT 0.00,
+    total_credit DECIMAL(12,2) DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-ALTER TABLE public.journal_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE journal_entries ENABLE ROW LEVEL SECURITY;
 
--- 12. Journal Entry Lines
-CREATE TABLE public.journal_entry_lines (
+-- JOURNAL ENTRY LINES
+CREATE TABLE journal_entry_lines (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    journal_entry_id UUID REFERENCES public.journal_entries(id) ON DELETE CASCADE,
-    account_id UUID REFERENCES public.chart_of_accounts(id) ON DELETE RESTRICT,
-    debit DECIMAL(12,2) DEFAULT 0,
-    credit DECIMAL(12,2) DEFAULT 0,
+    journal_entry_id UUID REFERENCES journal_entries(id) ON DELETE CASCADE,
+    account_id UUID REFERENCES chart_of_accounts(id),
+    debit DECIMAL(12,2) DEFAULT 0.00,
+    credit DECIMAL(12,2) DEFAULT 0.00,
     description TEXT
 );
 
-ALTER TABLE public.journal_entry_lines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE journal_entry_lines ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies (Allow Read/Write for authenticated users - placeholder)
-DO $$
-DECLARE
-  table_record RECORD;
-BEGIN
-  FOR table_record IN
-    SELECT tablename
-    FROM pg_tables
-    WHERE schemaname = 'public'
-  LOOP
-    EXECUTE format('CREATE POLICY "Allow all actions for authenticated users" ON %I FOR ALL TO authenticated USING (true) WITH CHECK (true);', table_record.tablename);
-  END LOOP;
-END
-$$;
+-- Basic RLS Policies (Allow all for now, to be refined later)
+-- Example: CREATE POLICY "Allow authenticated access" ON customers FOR ALL TO authenticated USING (true);
+-- Since the user didn't specify users/auth structure yet, I'll just enable RLS as requested.

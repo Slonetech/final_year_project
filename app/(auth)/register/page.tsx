@@ -1,6 +1,6 @@
-import { LoginForm } from "./login-form";
+import { RegisterForm } from "./register-form";
 
-export default function LoginPage() {
+export default function RegisterPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-900 to-slate-800">
       <div className="mb-8 flex flex-col items-center">
@@ -9,7 +9,7 @@ export default function LoginPage() {
         </div>
         <h1 className="text-2xl font-bold text-white tracking-widest uppercase">FinPal ERP</h1>
       </div>
-      <LoginForm />
+      <RegisterForm />
     </div>
   );
 }

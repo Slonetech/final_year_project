@@ -1,72 +1,72 @@
-import { createClient } from '../server';
-import { Supplier, CreateSupplierDto, UpdateSupplierDto } from '@/lib/types';
+import { createClient } from '../server'
+import { Supplier, CreateSupplierDto, UpdateSupplierDto } from '@/lib/types'
+import { mapToSnakeCase, mapToCamelCase, mapArrayToCamelCase } from '../../utils/mapping'
 
-const mapToDb = (data: any) => {
-  const result: any = { ...data };
-  if (data.contactPerson !== undefined) result.contact_person = data.contactPerson;
-  if (data.paymentTerms !== undefined) result.payment_terms = data.paymentTerms;
-  if (data.creditLimit !== undefined) result.credit_limit = data.creditLimit;
-  delete result.contactPerson;
-  delete result.paymentTerms;
-  delete result.creditLimit;
-  delete result.createdAt;
-  delete result.updatedAt;
-  return result;
-};
-
-const mapFromDb = (data: any): Supplier => {
-  return {
-    ...data,
-    contactPerson: data.contact_person || '',
-    paymentTerms: data.payment_terms || 30,
-    creditLimit: data.credit_limit || 0,
-    balance: data.balance || 0,
-    status: data.status || 'active',
-  };
-};
-
-export async function getAll(query?: string, status?: string) {
-  const supabase = await createClient();
-  let q = supabase.from('suppliers').select('*').order('name');
+export async function getAll(query: string = "", status: string = "all") {
+  const supabase = await createClient()
+  let q = supabase
+    .from('suppliers')
+    .select('*')
+    .order('name')
+  
   if (query) {
-    q = q.ilike('name', `%${query}%`);
+    q = q.or(`name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%`)
   }
-  if (status && status !== 'all') {
-    q = q.eq('status', status);
+
+  if (status !== 'all') {
+    q = q.eq('status', status)
   }
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data || []).map(mapFromDb);
+
+  const { data, error } = await q
+  
+  if (error) throw error
+  return mapArrayToCamelCase(data) as Supplier[]
 }
 
 export async function getById(id: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('suppliers').select('*').eq('id', id).single();
-  if (error) throw error;
-  return mapFromDb(data);
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('suppliers')
+    .select('*')
+    .eq('id', id)
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data) as Supplier
 }
 
-export async function create(record: CreateSupplierDto) {
-  const supabase = await createClient();
-  const dbRecord = mapToDb(record);
-  const { data, error } = await supabase.from('suppliers').insert(dbRecord).select().single();
-  if (error) throw error;
-  return mapFromDb(data);
+export async function create(supplier: CreateSupplierDto) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('suppliers')
+    .insert(mapToSnakeCase(supplier))
+    .select()
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data) as Supplier
 }
 
-export async function update(id: string, record: UpdateSupplierDto) {
-  const supabase = await createClient();
-  const dbRecord = mapToDb(record);
-  const { data, error } = await supabase.from('suppliers').update(dbRecord).eq('id', id).select().single();
-  if (error) throw error;
-  return mapFromDb(data);
+export async function update(id: string, supplier: UpdateSupplierDto) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('suppliers')
+    .update(mapToSnakeCase(supplier))
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data) as Supplier
 }
 
 export async function remove(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from('suppliers').delete().eq('id', id);
-  if (error) throw error;
-  return true;
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('suppliers')
+    .delete()
+    .eq('id', id)
+  
+  if (error) throw error
+  return { success: true }
 }
-
-export { remove as delete };

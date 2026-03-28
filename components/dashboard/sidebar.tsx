@@ -146,6 +146,20 @@ export function Sidebar() {
           })}
         </ul>
       </nav>
+
+      <div className="p-4 border-t">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          onClick={async () => {
+            const { logoutAction } = await import("@/app/(auth)/actions");
+            await logoutAction();
+          }}
+        >
+          <X className="w-5 h-5 mr-3" />
+          Logout
+        </Button>
+      </div>
     </>
   );
 

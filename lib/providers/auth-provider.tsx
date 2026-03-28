@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@/lib/types";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface AuthContextType {
   user: User | null;
@@ -18,39 +19,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
-    // Check if user is logged in (check localStorage)
-    const token = localStorage.getItem("auth_token");
-    const storedUser = localStorage.getItem("user");
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            name: session.user.user_metadata.full_name || session.user.email?.split('@')[0] || "User",
+            email: session.user.email!,
+            role: "admin", // Default role
+            status: "active",
+            createdAt: new Date(session.user.created_at),
+          });
+        } else {
+          setUser(null);
+        }
+        setIsLoading(false);
+      }
+    );
 
-    if (token && storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-
-    setIsLoading(false);
-  }, []);
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const login = async (email: string, password: string) => {
-    // Mock login - accepts any credentials
-    const mockUser: User = {
-      id: "user-1",
-      name: "John Kamau",
-      email: email,
-      role: "admin",
-      status: "active",
-      createdAt: new Date(),
-    };
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    localStorage.setItem("auth_token", "mock-token-" + Date.now());
-    localStorage.setItem("user", JSON.stringify(mockUser));
-    setUser(mockUser);
+    if (error) throw error;
     router.push("/");
   };
 
-  const logout = () => {
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("user");
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     router.push("/login");
   };

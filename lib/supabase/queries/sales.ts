@@ -1,59 +1,85 @@
-import { createClient } from '../server';
-import { SalesOrder, SalesOrderStatus } from '@/lib/types';
+import { createClient } from '../server'
+import { SalesOrder, CreateSalesOrderDto } from '@/lib/types'
+import { mapToSnakeCase, mapToCamelCase, mapArrayToCamelCase } from '../../utils/mapping'
 
-const mapFromDb = (data: any): SalesOrder => {
-  return {
-    id: data.id,
-    orderNumber: `SO-${data.id.substring(0, 6).toUpperCase()}`,
-    customerId: data.customer_id || '',
-    customerName: data.customers?.name || 'Unknown Customer',
-    orderDate: data.sale_date,
-    deliveryDate: data.sale_date,
-    status: (data.status || 'quote') as SalesOrderStatus,
-    items: [],
-    subtotal: data.total_amount || 0,
-    tax: 0,
-    total: data.total_amount || 0,
-    notes: data.notes || '',
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
-};
-
-export async function getAll(query?: string, status?: string) {
-  const supabase = await createClient();
-  let q = supabase.from('sales').select('*, customers(name)').order('sale_date', { ascending: false });
+export async function getAll(query: string = "", status: string = "all") {
+  const supabase = await createClient()
+  let q = supabase
+    .from('sales')
+    .select('*, customers(name)')
+    .order('sale_date', { ascending: false })
   
-  if (status && status !== 'all') {
-    q = q.eq('status', status);
-  }
-  
-  const { data, error } = await q;
-  if (error) throw error;
-  
-  let orders = (data || []).map(mapFromDb);
   if (query) {
-      const lowerQuery = query.toLowerCase();
-      orders = orders.filter(o => 
-         o.orderNumber.toLowerCase().includes(lowerQuery) || 
-         o.customerName.toLowerCase().includes(lowerQuery)
-      );
+    q = q.or(`notes.ilike.%${query}%,customers.name.ilike.%${query}%`)
   }
-  return orders;
+
+  if (status !== 'all') {
+    q = q.eq('status', status)
+  }
+
+  const { data, error } = await q
+  
+  if (error) throw error
+  return mapArrayToCamelCase(data) as any[]
 }
 
 export async function getById(id: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('sales').select('*, customers(name)').eq('id', id).single();
-  if (error) throw error;
-  return mapFromDb(data);
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('sales')
+    .select('*, customers(name), sale_items(*, inventory(name))')
+    .eq('id', id)
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data) as any
+}
+
+export async function create(sale: CreateSalesOrderDto, items: any[]) {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('sales')
+    .insert(mapToSnakeCase(sale))
+    .select()
+    .single()
+  
+  if (error) throw error
+
+  const saleItems = items.map(item => ({
+    ...mapToSnakeCase(item),
+    sale_id: data.id
+  }))
+
+  const { error: itemsError } = await supabase
+    .from('sale_items')
+    .insert(saleItems)
+  
+  if (itemsError) throw itemsError
+  
+  return mapToCamelCase(data)
+}
+
+export async function update(id: string, sale: any) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('sales')
+    .update(mapToSnakeCase(sale))
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data)
 }
 
 export async function remove(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from('sales').delete().eq('id', id);
-  if (error) throw error;
-  return true;
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('sales')
+    .delete()
+    .eq('id', id)
+  
+  if (error) throw error
+  return { success: true }
 }
-
-export { remove as delete };

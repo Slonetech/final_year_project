@@ -1,62 +1,85 @@
-import { createClient } from '../server';
-import { PurchaseOrder, PurchaseOrderStatus } from '@/lib/types';
+import { createClient } from '../server'
+import { PurchaseOrder, CreatePurchaseOrderDto } from '@/lib/types'
+import { mapToSnakeCase, mapToCamelCase, mapArrayToCamelCase } from '../../utils/mapping'
 
-const mapFromDb = (data: any): PurchaseOrder => {
-  return {
-    id: data.id,
-    orderNumber: `PO-${data.id.substring(0, 6).toUpperCase()}`,
-    supplierId: data.supplier_id || '',
-    supplierName: data.suppliers?.name || 'Unknown Supplier',
-    orderDate: data.purchase_date,
-    expectedDate: data.purchase_date, // simplified for now
-    status: (data.status || 'draft') as PurchaseOrderStatus,
-    items: [],
-    subtotal: data.total_amount || 0,
-    tax: 0,
-    total: data.total_amount || 0,
-    notes: data.notes || '',
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
-};
-
-export async function getAll(query?: string, status?: string) {
-  const supabase = await createClient();
-  let q = supabase.from('purchases').select('*, suppliers(name)').order('purchase_date', { ascending: false });
+export async function getAll(query: string = "", status: string = "all") {
+  const supabase = await createClient()
+  let q = supabase
+    .from('purchases')
+    .select('*, suppliers(name)')
+    .order('purchase_date', { ascending: false })
   
-  if (status && status !== 'all') {
-    q = q.eq('status', status);
-  }
-  
-  const { data, error } = await q;
-  if (error) throw error;
-  
-  let orders = (data || []).map(mapFromDb);
   if (query) {
-      const lowerQuery = query.toLowerCase();
-      orders = orders.filter(o => 
-         o.orderNumber.toLowerCase().includes(lowerQuery) || 
-         o.supplierName.toLowerCase().includes(lowerQuery)
-      );
+    q = q.or(`notes.ilike.%${query}%,suppliers.name.ilike.%${query}%`)
   }
-  return orders;
+
+  if (status !== 'all') {
+    q = q.eq('status', status)
+  }
+
+  const { data, error } = await q
+  
+  if (error) throw error
+  return mapArrayToCamelCase(data) as any[]
 }
 
 export async function getById(id: string) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('purchases').select('*, suppliers(name)').eq('id', id).single();
-  if (error) throw error;
-  return mapFromDb(data);
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('purchases')
+    .select('*, suppliers(name), purchase_items(*, inventory(name))')
+    .eq('id', id)
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data) as any
 }
 
-// Omitted Create/Update for now since it's just a view page according to original implementation
-// Only delete is used
+export async function create(purchase: CreatePurchaseOrderDto, items: any[]) {
+  const supabase = await createClient()
+  
+  const { data, error } = await supabase
+    .from('purchases')
+    .insert(mapToSnakeCase(purchase))
+    .select()
+    .single()
+  
+  if (error) throw error
+
+  const purchaseItems = items.map(item => ({
+    ...mapToSnakeCase(item),
+    purchase_id: data.id
+  }))
+
+  const { error: itemsError } = await supabase
+    .from('purchase_items')
+    .insert(purchaseItems)
+  
+  if (itemsError) throw itemsError
+  
+  return mapToCamelCase(data)
+}
+
+export async function update(id: string, purchase: any) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('purchases')
+    .update(mapToSnakeCase(purchase))
+    .eq('id', id)
+    .select()
+    .single()
+  
+  if (error) throw error
+  return mapToCamelCase(data)
+}
 
 export async function remove(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from('purchases').delete().eq('id', id);
-  if (error) throw error;
-  return true;
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('purchases')
+    .delete()
+    .eq('id', id)
+  
+  if (error) throw error
+  return { success: true }
 }
-
-export { remove as delete };
