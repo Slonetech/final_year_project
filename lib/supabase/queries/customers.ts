@@ -37,12 +37,17 @@ export async function getById(id: string) {
 
 export async function create(customer: CreateCustomerDto) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { data, error } = await supabase
     .from('customers')
-    .insert(mapToSnakeCase(customer))
+    .insert({
+      ...mapToSnakeCase(customer),
+      user_id: user?.id
+    })
     .select()
     .single()
-  
+
   if (error) throw error
   return mapToCamelCase(data) as Customer
 }

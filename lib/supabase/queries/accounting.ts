@@ -18,12 +18,17 @@ export const getAll = getAllAccounts;
 
 export async function createAccount(account: any) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { data, error } = await supabase
     .from('chart_of_accounts')
-    .insert(mapToSnakeCase(account))
+    .insert({
+      ...mapToSnakeCase(account),
+      user_id: user?.id
+    })
     .select()
     .single()
-  
+
   if (error) throw error
   return mapToCamelCase(data) as Account
 }
@@ -42,13 +47,17 @@ export async function getAllJournalEntries() {
 
 export async function createJournalEntry(entry: any, lines: any[]) {
   const supabase = await createClient()
-  
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { data, error } = await supabase
     .from('journal_entries')
-    .insert(mapToSnakeCase(entry))
+    .insert({
+      ...mapToSnakeCase(entry),
+      user_id: user?.id
+    })
     .select()
     .single()
-  
+
   if (error) throw error
 
   const entryLines = lines.map(line => ({

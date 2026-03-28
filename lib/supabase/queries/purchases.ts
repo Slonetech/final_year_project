@@ -37,13 +37,17 @@ export async function getById(id: string) {
 
 export async function create(purchase: CreatePurchaseOrderDto, items: any[]) {
   const supabase = await createClient()
-  
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { data, error } = await supabase
     .from('purchases')
-    .insert(mapToSnakeCase(purchase))
+    .insert({
+      ...mapToSnakeCase(purchase),
+      user_id: user?.id
+    })
     .select()
     .single()
-  
+
   if (error) throw error
 
   const purchaseItems = items.map(item => ({
@@ -54,9 +58,9 @@ export async function create(purchase: CreatePurchaseOrderDto, items: any[]) {
   const { error: itemsError } = await supabase
     .from('purchase_items')
     .insert(purchaseItems)
-  
+
   if (itemsError) throw itemsError
-  
+
   return mapToCamelCase(data)
 }
 

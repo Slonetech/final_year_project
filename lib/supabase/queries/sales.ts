@@ -37,13 +37,28 @@ export async function getById(id: string) {
 
 export async function create(sale: CreateSalesOrderDto, items: any[]) {
   const supabase = await createClient()
-  
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // Calculate totals from items
+  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0)
+  const taxRate = sale.taxRate || 16.00
+  const taxAmount = subtotal * (taxRate / 100)
+  const total = subtotal + taxAmount
+
   const { data, error } = await supabase
     .from('sales')
-    .insert(mapToSnakeCase(sale))
+    .insert({
+      ...mapToSnakeCase(sale),
+      user_id: user?.id,
+      created_by: user?.id,
+      subtotal,
+      tax_rate: taxRate,
+      tax_amount: taxAmount,
+      total
+    })
     .select()
     .single()
-  
+
   if (error) throw error
 
   const saleItems = items.map(item => ({
@@ -54,9 +69,9 @@ export async function create(sale: CreateSalesOrderDto, items: any[]) {
   const { error: itemsError } = await supabase
     .from('sale_items')
     .insert(saleItems)
-  
+
   if (itemsError) throw itemsError
-  
+
   return mapToCamelCase(data)
 }
 
