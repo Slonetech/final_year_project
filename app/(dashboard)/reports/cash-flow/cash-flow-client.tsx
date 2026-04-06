@@ -168,6 +168,15 @@ export default function CashFlowClient({
                         ))}
                     </div>
 
+                    {/* Methodology disclosure */}
+                    <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 print:border print:border-gray-300">
+                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <div className="text-sm text-blue-800 dark:text-blue-200">
+                            <p className="font-semibold mb-1">Report Methodology — Direct Method</p>
+                            <p>Operating cash flows are derived from actual payment records. Investing and financing activities are not yet tracked in the payments system and will appear as nil. For a complete statement, capital expenditure and financing transactions should be recorded via journal entries.</p>
+                        </div>
+                    </div>
+
                     <Card>
                         <CardHeader className="print:hidden">
                             <CardTitle>Cash Flow Statement</CardTitle>

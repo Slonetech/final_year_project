@@ -86,16 +86,16 @@ export function CustomerFormDialog({
   useEffect(() => {
     if (customer) {
       form.reset({
-        name: customer.name,
+        name: customer.name || "",
         contactPerson: customer.contactPerson || "",
-        email: customer.email,
-        phone: customer.phone,
-        address: customer.address,
-        city: customer.city,
-        country: customer.country,
+        email: customer.email || "",
+        phone: customer.phone || "",
+        address: customer.address || "",
+        city: customer.city || "",
+        country: customer.country || "Kenya",
         pin: customer.pin || "",
-        paymentTerms: customer.paymentTerms || 30,
-        creditLimit: customer.creditLimit || 0,
+        paymentTerms: customer.paymentTerms ?? 30,
+        creditLimit: customer.creditLimit ?? 0,
         status: customer.status || "active",
       });
     } else {

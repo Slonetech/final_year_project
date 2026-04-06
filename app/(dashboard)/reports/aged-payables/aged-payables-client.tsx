@@ -13,29 +13,14 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { exportToPDF } from "@/lib/utils/pdf-export";
 import { exportAgedPayablesToExcel } from "@/lib/utils/excel-export";
-import { Download, Printer, AlertTriangle, FileSpreadsheet } from "lucide-react";
+import { Printer, AlertTriangle, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
 export default function AgedPayablesClient({ initialData }: { initialData: AgedPayablesData[] }) {
   const handlePrint = () => window.print();
-
-  const handleExportPDF = async () => {
-    try {
-      await exportToPDF(
-        "aged-payables-report",
-        `aged-payables-${format(new Date(), "yyyy-MM-dd")}.pdf`,
-        { orientation: "landscape" }
-      );
-      toast.success("Aged Payables report exported to PDF successfully");
-    } catch (error) {
-      toast.error("Failed to export PDF");
-      console.error(error);
-    }
-  };
 
   const handleExportExcel = () => {
     try {
@@ -86,10 +71,6 @@ export default function AgedPayablesClient({ initialData }: { initialData: AgedP
           <Button variant="outline" onClick={handleExportExcel}>
             <FileSpreadsheet className="w-4 h-4 mr-2" />
             Export to Excel
-          </Button>
-          <Button onClick={handleExportPDF}>
-            <Download className="w-4 h-4 mr-2" />
-            Export to PDF
           </Button>
         </div>
       </div>

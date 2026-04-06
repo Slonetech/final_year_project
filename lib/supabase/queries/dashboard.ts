@@ -1,5 +1,4 @@
 import { createClient } from '../server'
-import { mapToCamelCase, mapArrayToCamelCase } from '../utils/mapping'
 
 export async function getDashboardKPIs() {
   const supabase = await createClient()
@@ -72,23 +71,37 @@ export async function getLowStockAlerts() {
 
 export async function getTopCustomers() {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('customers')
-    .select('id, name, balance')
-    .order('balance', { ascending: false })
-    .limit(5)
+
+  // Aggregate total invoice revenue per customer (not balance/debt)
+  const { data: invoices, error } = await supabase
+    .from('invoices')
+    .select('customer_id, total_amount, customers(name)')
 
   if (error) {
     console.error("Error fetching top customers:", error)
     return []
   }
 
-  return (data || []).map(c => ({
-    id: c.id,
-    name: c.name,
-    revenue: c.balance || 0,
-    invoiceCount: 0
-  }))
+  // Group and aggregate in JS (Supabase query builder doesn't support GROUP BY)
+  const revenueMap = new Map<string, { id: string; name: string; revenue: number; invoiceCount: number }>()
+
+  ;(invoices || []).forEach((inv: any) => {
+    const customerId = inv.customer_id
+    const customerName = inv.customers?.name || 'Unknown'
+    const amount = Number(inv.total_amount) || 0
+
+    if (!revenueMap.has(customerId)) {
+      revenueMap.set(customerId, { id: customerId, name: customerName, revenue: 0, invoiceCount: 0 })
+    }
+    const entry = revenueMap.get(customerId)!
+    entry.revenue += amount
+    entry.invoiceCount += 1
+  })
+
+  // Sort by revenue descending, return top 5
+  return Array.from(revenueMap.values())
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5)
 }
 
 export async function getSalesExpensesTrend() {

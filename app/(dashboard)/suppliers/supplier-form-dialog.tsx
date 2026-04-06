@@ -86,16 +86,16 @@ export function SupplierFormDialog({
   useEffect(() => {
     if (supplier) {
       form.reset({
-        name: supplier.name,
+        name: supplier.name || "",
         contactPerson: supplier.contactPerson || "",
-        email: supplier.email,
-        phone: supplier.phone,
-        address: supplier.address,
-        city: supplier.city,
-        country: supplier.country,
+        email: supplier.email || "",
+        phone: supplier.phone || "",
+        address: supplier.address || "",
+        city: supplier.city || "",
+        country: supplier.country || "Kenya",
         pin: supplier.pin || "",
-        paymentTerms: supplier.paymentTerms || 30,
-        creditLimit: supplier.creditLimit || 0,
+        paymentTerms: supplier.paymentTerms ?? 30,
+        creditLimit: supplier.creditLimit ?? 0,
         status: supplier.status || "active",
       });
     } else {

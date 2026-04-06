@@ -17,9 +17,8 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
-import { exportToPDF } from "@/lib/utils/pdf-export";
 import { exportTrialBalanceToExcel } from "@/lib/utils/excel-export";
-import { Download, Printer, Calendar as CalendarIcon, CheckCircle2, XCircle, FileSpreadsheet } from "lucide-react";
+import { Printer, Calendar as CalendarIcon, CheckCircle2, XCircle, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -47,20 +46,6 @@ export default function TrialBalanceClient({
   };
 
   const handlePrint = () => window.print();
-
-  const handleExportPDF = async () => {
-    try {
-      await exportToPDF(
-        "trial-balance-report",
-        `trial-balance-${format(date, "yyyy-MM-dd")}.pdf`,
-        { orientation: "portrait" }
-      );
-      toast.success("Trial Balance exported to PDF successfully");
-    } catch (error) {
-      toast.error("Failed to export PDF");
-      console.error(error);
-    }
-  };
 
   const handleExportExcel = () => {
     try {
@@ -107,10 +92,6 @@ export default function TrialBalanceClient({
           <Button variant="outline" onClick={handleExportExcel}>
             <FileSpreadsheet className="w-4 h-4 mr-2" />
             Export to Excel
-          </Button>
-          <Button onClick={handleExportPDF}>
-            <Download className="w-4 h-4 mr-2" />
-            Export to PDF
           </Button>
         </div>
       </div>

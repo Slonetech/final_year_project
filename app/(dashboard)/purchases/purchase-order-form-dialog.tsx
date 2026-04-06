@@ -49,7 +49,7 @@ const purchaseOrderSchema = z.object({
   supplierId: z.string().min(1, "Supplier is required"),
   orderDate: z.string().min(1, "Order date is required"),
   expectedDate: z.string().optional(),
-  status: z.enum(["draft", "submitted", "received", "paid"]),
+  status: z.enum(["pending", "approved", "received", "completed"]),
   taxRate: z.number().min(0).max(100),
   notes: z.string().optional(),
   lines: z.array(lineItemSchema).min(1, "Add at least one item"),
@@ -78,7 +78,7 @@ export function PurchaseOrderFormDialog({
       supplierId: "",
       orderDate: new Date().toISOString().split("T")[0],
       expectedDate: "",
-      status: "draft",
+      status: "pending",
       taxRate: 16,
       notes: "",
       lines: [
@@ -204,10 +204,10 @@ export function PurchaseOrderFormDialog({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="draft">Draft</SelectItem>
-                          <SelectItem value="submitted">Submitted</SelectItem>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
                           <SelectItem value="received">Received</SelectItem>
-                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />

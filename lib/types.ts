@@ -102,7 +102,7 @@ export type UpdateProductDto = Partial<CreateProductDto>;
 // PURCHASE ORDER TYPES
 // ============================================
 
-export type PurchaseOrderStatus = "draft" | "submitted" | "received" | "paid";
+export type PurchaseOrderStatus = "pending" | "approved" | "received" | "completed";
 
 export interface PurchaseOrderLine {
   id: string;

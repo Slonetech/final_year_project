@@ -8,36 +8,18 @@ export async function getBalanceSheet(asOfDate: string): Promise<BalanceSheetDat
   try {
     const supabase = await createClient()
 
-    // Check if user is authenticated
+    // Verify authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      console.error("Auth error in getBalanceSheet:", { authError, hasUser: !!user })
-      throw new Error("User not authenticated")
-    }
+    if (authError || !user) throw new Error("User not authenticated")
 
-    console.log("Fetching chart of accounts for user:", user.id)
-
-    // Fetch all accounts from chart of accounts (using actual DB column names)
+    // Fetch all active accounts
     const { data: accounts, error } = await supabase
       .from('chart_of_accounts')
       .select('*')
       .eq('is_active', true)
       .order('account_code')
 
-    console.log("Chart of accounts query result:", {
-      accountsCount: accounts?.length || 0,
-      error: error ? JSON.stringify(error, null, 2) : null,
-      firstAccount: accounts?.[0]
-    })
-
-    if (error) {
-      console.error("Database error in getBalanceSheet:", JSON.stringify(error, null, 2))
-      throw error
-    }
-
-    if (!accounts || accounts.length === 0) {
-      console.warn("No accounts found in chart_of_accounts table")
-    }
+    if (error) throw error
 
     // Initialize categories
     const currentAssets: any[] = []
@@ -46,7 +28,6 @@ export async function getBalanceSheet(asOfDate: string): Promise<BalanceSheetDat
     const longTermLiabilities: any[] = []
     const equityAccounts: any[] = []
 
-    // Group accounts by type (using actual DB column names)
     accounts?.forEach((account) => {
       const accountData = {
         accountId: account.id,
@@ -56,21 +37,45 @@ export async function getBalanceSheet(asOfDate: string): Promise<BalanceSheetDat
       }
 
       const accountType = account.account_type?.toLowerCase()
-
-      // For now, categorize by account code ranges since we don't have category column
       const code = parseInt(account.account_code)
+      // Use explicit category column if available, otherwise derive it
+      const category = account.account_category?.toLowerCase() || account.category?.toLowerCase() || ''
+      const nameLower = account.account_name?.toLowerCase() || ''
 
       if (accountType === 'asset') {
-        if (code < 1500) {
-          currentAssets.push(accountData) // 1000-1499 = Current Assets
+        // Priority 1: explicit DB category
+        if (category.includes('fixed') || category.includes('non_current')) {
+          fixedAssets.push(accountData)
+        } else if (category.includes('current')) {
+          currentAssets.push(accountData)
+        // Priority 2: keyword match on account name
+        } else if (nameLower.includes('equipment') || nameLower.includes('vehicle') ||
+                   nameLower.includes('furniture') || nameLower.includes('building') ||
+                   nameLower.includes('property') || nameLower.includes('land') ||
+                   nameLower.includes('machinery') || nameLower.includes('depreciation')) {
+          fixedAssets.push(accountData)
+        // Priority 3: account code range (1500+ = fixed)
+        } else if (code >= 1500) {
+          fixedAssets.push(accountData)
         } else {
-          fixedAssets.push(accountData) // 1500+ = Fixed Assets
+          currentAssets.push(accountData)
         }
       } else if (accountType === 'liability') {
-        if (code < 2500) {
-          currentLiabilities.push(accountData) // 2000-2499 = Current Liabilities
+        // Priority 1: explicit DB category
+        if (category.includes('long_term') || category.includes('non_current')) {
+          longTermLiabilities.push(accountData)
+        } else if (category.includes('current')) {
+          currentLiabilities.push(accountData)
+        // Priority 2: keyword match
+        } else if (nameLower.includes('loan') || nameLower.includes('mortgage') ||
+                   nameLower.includes('long term') || nameLower.includes('long-term') ||
+                   nameLower.includes('deferred')) {
+          longTermLiabilities.push(accountData)
+        // Priority 3: code range (2500+ = long-term)
+        } else if (code >= 2500) {
+          longTermLiabilities.push(accountData)
         } else {
-          longTermLiabilities.push(accountData) // 2500+ = Long-term Liabilities
+          currentLiabilities.push(accountData)
         }
       } else if (accountType === 'equity') {
         equityAccounts.push(accountData)
@@ -90,28 +95,12 @@ export async function getBalanceSheet(asOfDate: string): Promise<BalanceSheetDat
 
     return {
       asOfDate: new Date(asOfDate),
-      assets: {
-        currentAssets,
-        fixedAssets,
-        totalAssets
-      },
-      liabilities: {
-        currentLiabilities,
-        longTermLiabilities,
-        totalLiabilities
-      },
-      equity: {
-        equityAccounts,
-        totalEquity
-      }
+      assets: { currentAssets, fixedAssets, totalAssets },
+      liabilities: { currentLiabilities, longTermLiabilities, totalLiabilities },
+      equity: { equityAccounts, totalEquity }
     }
   } catch (error) {
-    console.error("Error in getBalanceSheet:", {
-      error,
-      errorString: JSON.stringify(error),
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      errorStack: error instanceof Error ? error.stack : undefined
-    })
+    console.error("Error in getBalanceSheet:", error instanceof Error ? error.message : error)
     return {
       asOfDate: new Date(asOfDate),
       assets: { currentAssets: [], fixedAssets: [], totalAssets: 0 },
@@ -125,62 +114,79 @@ export async function getProfitLoss(startDate: string, endDate: string): Promise
   try {
     const supabase = await createClient()
 
-    // Fetch revenue and expense accounts (using actual DB column names)
-    const { data: accounts, error } = await supabase
+    // ── Revenue: sum invoices issued within the period ──────────────────────
+    const { data: invoices, error: invError } = await supabase
+      .from('invoices')
+      .select('id, invoice_number, total_amount, tax_amount, customers(name)')
+      .gte('issue_date', startDate)
+      .lte('issue_date', endDate)
+      .order('issue_date')
+
+    if (invError) throw invError
+
+    // ── Cost of Goods Sold: sum purchases received within the period ─────────
+    const { data: purchases, error: purError } = await supabase
+      .from('purchases')
+      .select('id, order_number, total_amount, suppliers(name)')
+      .gte('order_date', startDate)
+      .lte('order_date', endDate)
+      .order('order_date')
+
+    if (purError) throw purError
+
+    // ── Build P&L line items ─────────────────────────────────────────────────
+
+    // Revenue items: one line per invoice
+    const revenueItems: { accountId: string; accountCode: string; accountName: string; balance: number }[] = []
+    let totalRevenue = 0
+
+    ;(invoices || []).forEach((inv: any) => {
+      const gross = Number(inv.total_amount) || 0
+      const tax = Number(inv.tax_amount) || 0
+      const net = gross - tax  // net of VAT — this is the revenue figure
+      revenueItems.push({
+        accountId: inv.id,
+        accountCode: inv.invoice_number || 'INV',
+        accountName: `Sales - ${inv.customers?.name || 'Customer'}`,
+        balance: net > 0 ? net : gross
+      })
+      totalRevenue += net > 0 ? net : gross
+    })
+
+    // COGS items: one line per purchase
+    const cogsItems: { accountId: string; accountCode: string; accountName: string; balance: number }[] = []
+    let totalCOGS = 0
+
+    ;(purchases || []).forEach((pur: any) => {
+      const amount = Number(pur.total_amount) || 0
+      cogsItems.push({
+        accountId: pur.id,
+        accountCode: pur.order_number || 'PO',
+        accountName: `Purchases - ${pur.suppliers?.name || 'Supplier'}`,
+        balance: amount
+      })
+      totalCOGS += amount
+    })
+
+    const grossProfit = totalRevenue - totalCOGS
+
+    // Operating expenses: fetch from chart of accounts (overhead costs — salaries, rent, etc.)
+    const { data: expenseAccounts } = await supabase
       .from('chart_of_accounts')
-      .select('*')
-      .in('account_type', ['Revenue', 'Expense'])
+      .select('id, account_code, account_name, balance')
+      .ilike('account_type', 'Expense')
       .eq('is_active', true)
       .order('account_code')
 
-    console.log("P&L accounts query:", {
-      accountsCount: accounts?.length,
-      accounts: accounts?.map(a => ({ code: a.account_code, name: a.account_name, type: a.account_type, balance: a.balance })),
-      error
-    })
+    const operatingExpenseItems = (expenseAccounts || []).map((acc: any) => ({
+      accountId: acc.id,
+      accountCode: acc.account_code,
+      accountName: acc.account_name,
+      balance: Number(acc.balance) || 0
+    }))
+    const totalOperatingExpenses = operatingExpenseItems.reduce((s, a) => s + a.balance, 0)
 
-    if (error) throw error
-
-    // Initialize categories
-    const revenueItems: any[] = []
-    const cogsItems: any[] = []
-    const operatingExpenseItems: any[] = []
-    const otherRevenueItems: any[] = []
-    const otherExpenseItems: any[] = []
-
-    // Group accounts by type and account code ranges
-    accounts?.forEach((account) => {
-      const accountData = {
-        accountId: account.id,
-        accountCode: account.account_code,
-        accountName: account.account_name,
-        balance: Number(account.balance) || 0
-      }
-
-      const accountType = account.account_type?.toLowerCase()
-      const code = parseInt(account.account_code)
-
-      if (accountType === 'revenue') {
-        revenueItems.push(accountData)
-      } else if (accountType === 'expense') {
-        if (code >= 5000 && code < 5100) {
-          cogsItems.push(accountData) // 5000-5099 = COGS
-        } else {
-          operatingExpenseItems.push(accountData) // Other expenses
-        }
-      }
-    })
-
-    // Calculate totals
-    const totalRevenue = revenueItems.reduce((sum, acc) => sum + acc.balance, 0)
-    const totalCOGS = cogsItems.reduce((sum, acc) => sum + acc.balance, 0)
-    const grossProfit = totalRevenue - totalCOGS
-
-    const totalOperatingExpenses = operatingExpenseItems.reduce((sum, acc) => sum + acc.balance, 0)
-    const otherIncome = otherRevenueItems.reduce((sum, acc) => sum + acc.balance, 0)
-    const otherExpenses = otherExpenseItems.reduce((sum, acc) => sum + acc.balance, 0)
-
-    const netProfit = grossProfit - totalOperatingExpenses + otherIncome - otherExpenses
+    const netProfit = grossProfit - totalOperatingExpenses
 
     return {
       startDate: new Date(startDate),
@@ -198,8 +204,8 @@ export async function getProfitLoss(startDate: string, endDate: string): Promise
         items: operatingExpenseItems,
         total: totalOperatingExpenses
       },
-      otherIncome,
-      otherExpenses,
+      otherIncome: 0,
+      otherExpenses: 0,
       netProfit
     }
   } catch (error) {
@@ -222,67 +228,63 @@ export async function getCashFlow(startDate: string, endDate: string): Promise<C
   try {
     const supabase = await createClient()
 
-    console.log("Fetching cash flow data for period:", { startDate, endDate })
-
-    // Fetch cash accounts to calculate opening and closing balances
+    // ── Opening balance: sum of all cash/bank accounts ──────────────────────
     const { data: cashAccounts, error: cashError } = await supabase
       .from('chart_of_accounts')
-      .select('*')
+      .select('balance')
       .eq('account_type', 'Asset')
       .ilike('account_name', '%cash%')
 
-    console.log("Cash accounts:", { count: cashAccounts?.length, error: cashError })
+    if (cashError) throw cashError
 
-    if (cashError) {
-      console.error("Cash accounts error:", cashError)
-      throw cashError
-    }
+    const openingBalance = (cashAccounts || []).reduce((sum, acc) => sum + (Number(acc.balance) || 0), 0)
 
-    const beginningCash = cashAccounts?.reduce((sum, acc) => sum + (Number(acc.balance) || 0), 0) || 0
-
-    // Fetch payments made and received in the period
-    const { data: payments, error: paymentsError } = await supabase
+    // ── Payments received from customers in the period ────────────────────────
+    const { data: receipts, error: receiptsError } = await supabase
       .from('payments')
-      .select('*, customers(name), suppliers(name)')
+      .select('amount, customers(name)')
+      .eq('type', 'received')
       .gte('payment_date', startDate)
       .lte('payment_date', endDate)
-      .order('payment_date')
 
-    console.log("Payments:", { count: payments?.length, error: paymentsError })
+    if (receiptsError) throw receiptsError
 
-    if (paymentsError) {
-      console.error("Payments error:", paymentsError)
-      throw paymentsError
+    const totalReceipts = (receipts || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+    const receiptCount = receipts?.length || 0
+
+    // ── Payments made to suppliers in the period ──────────────────────────────
+    const { data: disbursements, error: disbError } = await supabase
+      .from('payments')
+      .select('amount, suppliers(name)')
+      .eq('type', 'made')
+      .gte('payment_date', startDate)
+      .lte('payment_date', endDate)
+
+    if (disbError) throw disbError
+
+    const totalDisbursements = (disbursements || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+    const disbCount = disbursements?.length || 0
+
+    // ── Build operating activities summary ────────────────────────────────────
+    const operatingItems: { description: string; amount: number }[] = []
+
+    if (receiptCount > 0 || totalReceipts > 0) {
+      operatingItems.push({
+        description: `Cash receipts from customers (${receiptCount} payment${receiptCount !== 1 ? 's' : ''})`,
+        amount: totalReceipts
+      })
     }
 
-    // Categorize cash flows
-    const operatingItems: any[] = []
-    const investingItems: any[] = []
-    const financingItems: any[] = []
+    if (disbCount > 0 || totalDisbursements > 0) {
+      operatingItems.push({
+        description: `Cash payments to suppliers (${disbCount} payment${disbCount !== 1 ? 's' : ''})`,
+        amount: -totalDisbursements
+      })
+    }
 
-    let operatingTotal = 0
-    let investingTotal = 0
-    let financingTotal = 0
-
-    payments?.forEach((payment) => {
-      const amount = Number(payment.amount) || 0
-      const description = payment.type === 'received'
-        ? `Payment from ${payment.customers?.name || 'Customer'}`
-        : `Payment to ${payment.suppliers?.name || 'Supplier'}`
-
-      // For now, categorize all as operating activities
-      // In a full implementation, you'd categorize based on transaction type
-      const item = {
-        description,
-        amount: payment.type === 'received' ? amount : -amount
-      }
-
-      operatingItems.push(item)
-      operatingTotal += item.amount
-    })
-
-    const netCashFlow = operatingTotal + investingTotal + financingTotal
-    const closingBalance = beginningCash + netCashFlow
+    const operatingTotal = totalReceipts - totalDisbursements
+    const netCashFlow = operatingTotal  // Investing & financing not tracked — see UI note
+    const closingBalance = openingBalance + netCashFlow
 
     return {
       startDate: new Date(startDate),
@@ -291,25 +293,14 @@ export async function getCashFlow(startDate: string, endDate: string): Promise<C
         items: operatingItems,
         total: operatingTotal
       },
-      investingActivities: {
-        items: investingItems,
-        total: investingTotal
-      },
-      financingActivities: {
-        items: financingItems,
-        total: financingTotal
-      },
+      investingActivities: { items: [], total: 0 },
+      financingActivities: { items: [], total: 0 },
       netCashFlow,
-      openingBalance: beginningCash,
+      openingBalance,
       closingBalance
     }
   } catch (error) {
-    console.error("Error in getCashFlow:", {
-      error,
-      errorString: JSON.stringify(error),
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      errorStack: error instanceof Error ? error.stack : undefined
-    })
+    console.error("Error in getCashFlow:", error instanceof Error ? error.message : error)
     return {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
@@ -411,9 +402,9 @@ export async function getAgedReceivables(): Promise<AgedReceivablesData[]> {
 
       if (amountDue <= 0) return // Skip paid invoices
 
-      // Calculate age in days
-      const invoiceDate = new Date(invoice.issue_date)
-      const daysOld = Math.floor((today.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24))
+      // Use due_date for aging (correct: aged receivables measure days PAST DUE)
+      const dueDate = invoice.due_date ? new Date(invoice.due_date) : new Date(invoice.issue_date)
+      const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
 
       // Get or create customer entry
       if (!customerMap.has(customerId)) {
@@ -431,17 +422,17 @@ export async function getAgedReceivables(): Promise<AgedReceivablesData[]> {
 
       const customerData = customerMap.get(customerId)!
 
-      // Categorize by age
-      if (daysOld <= 30) {
-        customerData.current += amountDue
-      } else if (daysOld <= 60) {
-        customerData.days30 += amountDue
-      } else if (daysOld <= 90) {
-        customerData.days60 += amountDue
-      } else if (daysOld <= 120) {
-        customerData.days90 += amountDue
+      // Align with UI columns: Current | 1-30 Days | 31-60 Days | 61-90 Days | Over 90 Days
+      if (daysOverdue <= 0) {
+        customerData.current += amountDue    // Not yet due
+      } else if (daysOverdue <= 30) {
+        customerData.days30 += amountDue    // 1-30 days overdue
+      } else if (daysOverdue <= 60) {
+        customerData.days60 += amountDue    // 31-60 days overdue
+      } else if (daysOverdue <= 90) {
+        customerData.days90 += amountDue    // 61-90 days overdue
       } else {
-        customerData.over90 += amountDue
+        customerData.over90 += amountDue    // Over 90 days overdue
       }
 
       customerData.total += amountDue
@@ -495,9 +486,9 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
 
       if (amountDue <= 0) return // Skip paid purchases
 
-      // Calculate age in days
+      // Use order_date for aging (days since purchase was made)
       const purchaseDate = new Date(purchase.order_date)
-      const daysOld = Math.floor((today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24))
+      const daysOverdue = Math.floor((today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24))
 
       // Get or create supplier entry
       if (!supplierMap.has(supplierId)) {
@@ -515,17 +506,17 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
 
       const supplierData = supplierMap.get(supplierId)!
 
-      // Categorize by age
-      if (daysOld <= 30) {
-        supplierData.current += amountDue
-      } else if (daysOld <= 60) {
-        supplierData.days30 += amountDue
-      } else if (daysOld <= 90) {
-        supplierData.days60 += amountDue
-      } else if (daysOld <= 120) {
-        supplierData.days90 += amountDue
+      // Align with UI columns: Current | 1-30 Days | 31-60 Days | 61-90 Days | Over 90 Days
+      if (daysOverdue <= 0) {
+        supplierData.current += amountDue    // Not yet due
+      } else if (daysOverdue <= 30) {
+        supplierData.days30 += amountDue    // 1-30 days
+      } else if (daysOverdue <= 60) {
+        supplierData.days60 += amountDue    // 31-60 days
+      } else if (daysOverdue <= 90) {
+        supplierData.days90 += amountDue    // 61-90 days
       } else {
-        supplierData.over90 += amountDue
+        supplierData.over90 += amountDue    // Over 90 days
       }
 
       supplierData.total += amountDue

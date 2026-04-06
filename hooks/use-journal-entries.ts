@@ -1,40 +1,36 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { mockJournalEntriesApi } from "@/lib/api/mock-api";
+import {
+  getAllJournalEntriesAction,
+  createJournalEntryAction,
+} from "@/app/(dashboard)/accounting/actions";
 import { CreateJournalEntryDto } from "@/lib/types";
 import { toast } from "sonner";
 
 interface JournalEntryFilters {
-    query?: string;
-    status?: string;
+  query?: string;
+  status?: string;
 }
 
 export function useJournalEntries(filters?: JournalEntryFilters) {
-    return useQuery({
-        queryKey: ["journal-entries", filters],
-        queryFn: () => mockJournalEntriesApi.getAll(filters),
-    });
-}
-
-export function useJournalEntry(id: string) {
-    return useQuery({
-        queryKey: ["journal-entries", id],
-        queryFn: () => mockJournalEntriesApi.getById(id),
-        enabled: !!id,
-    });
+  return useQuery({
+    queryKey: ["journal-entries", filters],
+    queryFn: () => getAllJournalEntriesAction(filters),
+  });
 }
 
 export function useCreateJournalEntry() {
-    const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: (data: CreateJournalEntryDto) => mockJournalEntriesApi.create(data),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["journal-entries"] });
-            toast.success("Journal entry created successfully");
-        },
-        onError: () => {
-            toast.error("Failed to create journal entry");
-        },
-    });
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ entry, lines }: { entry: CreateJournalEntryDto; lines: any[] }) =>
+      createJournalEntryAction(entry, lines),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["journal-entries"] });
+      toast.success("Journal entry created successfully");
+    },
+    onError: () => {
+      toast.error("Failed to create journal entry");
+    },
+  });
 }
