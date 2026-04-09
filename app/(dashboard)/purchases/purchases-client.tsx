@@ -28,9 +28,10 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { MoreHorizontal, Plus, Search, Eye, Trash2 } from "lucide-react";
-import { deletePurchaseOrderAction } from "./actions";
+import { deletePurchaseOrderAction, getPurchaseOrderByIdAction } from "./actions";
 import { toast } from "sonner";
 import { PurchaseOrderFormDialog } from "./purchase-order-form-dialog";
 
@@ -54,6 +55,9 @@ export default function PurchasesClient({
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
     // Client-side filtering
     const filteredOrders = useMemo(() => {
@@ -85,6 +89,19 @@ export default function PurchasesClient({
             } catch (e) {
                 toast.error("Failed to delete purchase order");
             }
+        }
+    };
+
+    const handleViewDetails = async (id: string) => {
+        setIsLoadingDetails(true);
+        try {
+            const order = await getPurchaseOrderByIdAction(id);
+            setSelectedOrder(order as PurchaseOrder);
+            setDetailsOpen(true);
+        } catch (e) {
+            toast.error("Failed to load purchase order details");
+        } finally {
+            setIsLoadingDetails(false);
         }
     };
 
@@ -190,9 +207,9 @@ export default function PurchasesClient({
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                        <DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleViewDetails(order.id)}>
                                                             <Eye className="w-4 h-4 mr-2" />
-                                                            View Details
+                                                            {isLoadingDetails ? "Loading..." : "View Details"}
                                                         </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
@@ -235,6 +252,88 @@ export default function PurchasesClient({
                 suppliers={suppliers}
                 products={products}
             />
+
+            <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Purchase Order Details</DialogTitle>
+                        <DialogDescription>
+                            {selectedOrder?.orderNumber || "Order"}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedOrder ? (
+                        <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="text-muted-foreground">Supplier</p>
+                                    <p className="font-medium">{selectedOrder.supplierName || "-"}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground">Status</p>
+                                    <p className="font-medium capitalize">{selectedOrder.status}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground">Order Date</p>
+                                    <p className="font-medium">{formatDate(selectedOrder.orderDate)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground">Expected Date</p>
+                                    <p className="font-medium">{formatDate(selectedOrder.expectedDate)}</p>
+                                </div>
+                            </div>
+
+                            <div className="rounded-md border overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Product</TableHead>
+                                            <TableHead className="text-right">Qty</TableHead>
+                                            <TableHead className="text-right">Unit Price</TableHead>
+                                            <TableHead className="text-right">Total</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(selectedOrder.lines || []).length > 0 ? (
+                                            selectedOrder.lines.map((line) => (
+                                                <TableRow key={line.id}>
+                                                    <TableCell>{line.productName}</TableCell>
+                                                    <TableCell className="text-right">{line.quantity}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(line.unitPrice)}</TableCell>
+                                                    <TableCell className="text-right">{formatCurrency(line.total)}</TableCell>
+                                                </TableRow>
+                                            ))
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                                                    No line items found for this order.
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            <div className="space-y-2 text-sm max-w-sm ml-auto">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Subtotal</span>
+                                    <span>{formatCurrency(selectedOrder.subtotal || 0)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground">Tax</span>
+                                    <span>{formatCurrency(selectedOrder.taxAmount || 0)}</span>
+                                </div>
+                                <div className="flex justify-between border-t pt-2 font-semibold text-base">
+                                    <span>Total</span>
+                                    <span>{formatCurrency(selectedOrder.total || 0)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">No details available.</p>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
