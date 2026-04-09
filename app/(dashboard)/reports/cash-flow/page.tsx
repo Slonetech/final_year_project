@@ -4,8 +4,10 @@ import CashFlowClient from "./cash-flow-client";
 export default async function CashFlowPage({
   searchParams,
 }: {
-  searchParams: { startDate?: string; endDate?: string };
+  searchParams: Promise<{ startDate?: string; endDate?: string }>;
 }) {
+  const resolvedParams = await searchParams;
+
   const defaultStart = new Date();
   defaultStart.setDate(1); // First day of current month
   defaultStart.setHours(0, 0, 0, 0);
@@ -13,8 +15,8 @@ export default async function CashFlowPage({
   const defaultEnd = new Date();
   defaultEnd.setHours(23, 59, 59, 999);
 
-  const startDate = searchParams.startDate ? new Date(searchParams.startDate) : defaultStart;
-  const endDate = searchParams.endDate ? new Date(searchParams.endDate) : defaultEnd;
+  const startDate = resolvedParams.startDate ? new Date(resolvedParams.startDate) : defaultStart;
+  const endDate = resolvedParams.endDate ? new Date(resolvedParams.endDate) : defaultEnd;
   
   const cashFlow = await reportsApi.getCashFlow(startDate, endDate);
 

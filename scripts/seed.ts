@@ -192,6 +192,9 @@ async function seed() {
   // 7. Journal Entries — Mix of Revenue, Expenses, and Transfers
   // -------------------------------------------------------------------------
   const journalEntries = [
+    { desc: "Owner's Initial Capital - Bank", amt: 1000000, debitAcc: "KCB Bank Account", creditAcc: "Owner's Equity" },
+    { desc: "Owner's Initial Capital - MPesa", amt: 150000, debitAcc: "M-Pesa Business", creditAcc: "Owner's Equity" },
+    { desc: "Petty Cash Funding", amt: 50000, debitAcc: "Cash on Hand", creditAcc: "KCB Bank Account" },
     { desc: "Monthly Rent - Office", amt: 85000, debitAcc: "Rent Expense", creditAcc: "KCB Bank Account" },
     { desc: "Staff Salaries Jan", amt: 450000, debitAcc: "Salary Expense", creditAcc: "KCB Bank Account" },
     { desc: "Electricity Bill March", amt: 12500, debitAcc: "Electricity & Water", creditAcc: "M-Pesa Business" },

@@ -26,36 +26,36 @@ async function fetchInvoicesForProfitLoss(
     {
       dateColumn: "issue_date",
       selectClause:
-        "id, invoice_number, total_amount, tax_amount, customers(name)",
+        "id, invoice_number, total_amount, customers(name)",
     },
     {
       dateColumn: "invoice_date",
       selectClause:
-        "id, invoice_number, total_amount, tax_amount, customers(name)",
+        "id, invoice_number, total_amount, customers(name)",
     },
     {
       dateColumn: "issue_date",
-      selectClause: "id, invoice_number, total, tax_amount, customers(name)",
+      selectClause: "id, invoice_number, total_amount, customers(name)",
     },
     {
       dateColumn: "invoice_date",
-      selectClause: "id, invoice_number, total, tax_amount, customers(name)",
+      selectClause: "id, invoice_number, total_amount, customers(name)",
     },
     {
       dateColumn: "issue_date",
-      selectClause: "id, invoice_number, total_amount, tax_amount",
+      selectClause: "id, invoice_number, total_amount",
     },
     {
       dateColumn: "invoice_date",
-      selectClause: "id, invoice_number, total_amount, tax_amount",
+      selectClause: "id, invoice_number, total_amount",
     },
     {
       dateColumn: "issue_date",
-      selectClause: "id, invoice_number, total, tax_amount",
+      selectClause: "id, invoice_number, total_amount",
     },
     {
       dateColumn: "invoice_date",
-      selectClause: "id, invoice_number, total, tax_amount",
+      selectClause: "id, invoice_number, total_amount",
     },
   ];
 
@@ -95,21 +95,21 @@ async function fetchPurchasesForProfitLoss(
     },
     {
       dateColumn: "order_date",
-      selectClause: "id, order_number, total_amount, suppliers(name)",
+      selectClause: "id, order_number, total, suppliers(name)",
     },
     {
       dateColumn: "purchase_date",
-      selectClause: "id, order_number, total_amount, suppliers(name)",
+      selectClause: "id, order_number, total, suppliers(name)",
     },
     { dateColumn: "order_date", selectClause: "id, order_number, total" },
     { dateColumn: "purchase_date", selectClause: "id, order_number, total" },
     {
       dateColumn: "order_date",
-      selectClause: "id, order_number, total_amount",
+      selectClause: "id, order_number, total",
     },
     {
       dateColumn: "purchase_date",
-      selectClause: "id, order_number, total_amount",
+      selectClause: "id, order_number, total",
     },
   ];
 
@@ -149,7 +149,7 @@ export async function getBalanceSheet(
     // Step 1: Fetch all active accounts for metadata and classification
     const { data: accounts, error: accError } = await supabase
       .from("chart_of_accounts")
-      .select("id, account_code, account_name, account_type, account_category, category")
+      .select("id, account_code, account_name, account_type")
       .eq("is_active", true)
       .order("account_code");
 
@@ -208,7 +208,7 @@ export async function getBalanceSheet(
         accountId: account.id,
         accountCode: account.account_code,
         accountName: account.account_name,
-        balance: Math.max(0, balance), // negative balances shown as zero (abnormal)
+        balance: balance,
       };
 
       const code = parseInt(account.account_code);
@@ -281,6 +281,19 @@ export async function getBalanceSheet(
     const totalLongTermLiabilities = longTermLiabilities.reduce((sum, acc) => sum + acc.balance, 0);
     const totalLiabilities = totalCurrentLiabilities + totalLongTermLiabilities;
 
+    // Step 5: Integrate Net Income (Retained Earnings - Current Year)
+    // We query from inception up to the asOfDate to capture all historical earnings
+    const { netProfit } = await getProfitLoss("2000-01-01", asOfDate);
+    
+    if (netProfit !== 0) {
+      equityAccounts.push({
+        accountId: "retained-earnings-current",
+        accountCode: "3999",
+        accountName: "Retained Earnings (Current Year)",
+        balance: netProfit,
+      });
+    }
+
     const totalEquity = equityAccounts.reduce((sum, acc) => sum + acc.balance, 0);
 
     return {
@@ -346,7 +359,7 @@ export async function getProfitLoss(
     let totalRevenue = 0;
 
     (invoices || []).forEach((inv: any) => {
-      const gross = Number(inv.total_amount ?? inv.total) || 0;
+      const gross = Number(inv.total_amount) || 0;
       const tax = Number(inv.tax_amount) || 0;
       const net = gross - tax; // net of VAT — this is the revenue figure
       revenueItems.push({
@@ -368,7 +381,7 @@ export async function getProfitLoss(
     let totalCOGS = 0;
 
     (purchases || []).forEach((pur: any) => {
-      const amount = Number(pur.total ?? pur.total_amount) || 0;
+      const amount = Number(pur.total) || 0;
       cogsItems.push({
         accountId: pur.id,
         accountCode: pur.order_number || "PO",
@@ -513,7 +526,7 @@ export async function getCashFlow(
       .from("chart_of_accounts")
       .select("balance")
       .eq("account_type", "Asset")
-      .ilike("account_name", "%cash%");
+      .or("account_name.ilike.%cash%,account_name.ilike.%bank%,account_name.ilike.%mpesa%");
 
     if (cashError) throw cashError;
 
@@ -849,7 +862,7 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
       const supplierName = purchase.suppliers?.name || "Unknown Supplier";
 
       // Calculate amount due
-      const totalAmount = Number(purchase.total_amount) || 0;
+      const totalAmount = Number(purchase.total) || 0;
       const amountPaid = Number(purchase.amount_paid) || 0;
       const amountDue = totalAmount - amountPaid;
 

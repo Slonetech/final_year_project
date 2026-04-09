@@ -4,9 +4,10 @@ import BalanceSheetClient from "./balance-sheet-client";
 export default async function BalanceSheetPage({
   searchParams,
 }: {
-  searchParams: { date?: string };
+  searchParams: Promise<{ date?: string }>;
 }) {
-  const asOfDate = searchParams.date ? new Date(searchParams.date) : new Date();
+  const resolvedParams = await searchParams;
+  const asOfDate = resolvedParams.date ? new Date(resolvedParams.date) : new Date();
   
   const balanceSheet = await reportsApi.getBalanceSheet(asOfDate);
 
