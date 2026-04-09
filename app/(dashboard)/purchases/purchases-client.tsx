@@ -59,6 +59,11 @@ export default function PurchasesClient({
     const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null);
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+    const detailsSubtotal = selectedOrder?.lines?.reduce((sum, line) => sum + (line.total || (line.quantity * line.unitPrice) || 0), 0) || 0;
+    const detailsTaxRate = selectedOrder?.taxRate || 16;
+    const detailsTax = selectedOrder?.taxAmount || ((detailsSubtotal * detailsTaxRate) / 100) || 0;
+    const detailsTotal = detailsSubtotal + detailsTax;
+
     // Client-side filtering
     const filteredOrders = useMemo(() => {
         return initialOrders.filter((order) => {
@@ -317,15 +322,15 @@ export default function PurchasesClient({
                             <div className="space-y-2 text-sm max-w-sm ml-auto">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Subtotal</span>
-                                    <span>{formatCurrency(selectedOrder.subtotal || 0)}</span>
+                                    <span>{formatCurrency(detailsSubtotal || 0)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Tax</span>
-                                    <span>{formatCurrency(selectedOrder.taxAmount || 0)}</span>
+                                    <span className="text-muted-foreground">Tax ({detailsTaxRate}%)</span>
+                                    <span>{formatCurrency(detailsTax || 0)}</span>
                                 </div>
                                 <div className="flex justify-between border-t pt-2 font-semibold text-base">
                                     <span>Total</span>
-                                    <span>{formatCurrency(selectedOrder.total || 0)}</span>
+                                    <span>{formatCurrency(detailsTotal || 0)}</span>
                                 </div>
                             </div>
                         </div>

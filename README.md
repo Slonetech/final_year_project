@@ -1,258 +1,190 @@
-# FinPal ERP System
+# 🚀 FinPal ERP System: Integrated Business Management Solution
 
-A comprehensive ERP system built with Next.js 16 for managing business operations including customers, suppliers, inventory, sales, purchases, and accounting.
+[![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=flat-square&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2-blue?style=flat-square&logo=react)](https://react.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-Database-green?style=flat-square&logo=supabase)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-## Features
-
-- 📊 **Dashboard** - Real-time financial KPIs and analytics
-- 👥 **Customer & Supplier Management** - Complete CRM functionality
-- 📦 **Inventory Management** - Product tracking and stock alerts
-- 🛒 **Sales Orders** - Create and manage sales orders
-- 📥 **Purchase Orders** - Track supplier orders and deliveries
-- 🧾 **Invoicing** - Professional invoice generation
-- 💳 **Payments** - Track payments received and made
-- 📈 **Reporting** - Trial balance, aged receivables/payables
-- 🏦 **Accounting** - Chart of accounts and journal entries
-
-## Tech Stack
-
-- **Frontend**: Next.js 16 (App Router), React 19, TypeScript
-- **Database**: Supabase (PostgreSQL)
-- **UI**: Shadcn/ui, Tailwind CSS v4
-- **State Management**: TanStack React Query
-- **Forms**: React Hook Form + Zod validation
-- **Authentication**: Supabase Auth
-
-## Prerequisites
-
-- Node.js 18+ and npm
-- Supabase account ([Get started](https://supabase.com))
-
-## Installation
-
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd erp-finpal-system
-```
-
-2. **Install dependencies**
-```bash
-npm install
-```
-
-3. **Set up environment variables**
-
-Create a `.env.local` file in the root directory:
-
-```bash
-# Supabase Configuration
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-
-# Database connection string (for migrations)
-DATABASE_URL=postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
-
-# Application Configuration
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NODE_ENV=development
-```
-
-> ⚠️ **Security**: Never commit `.env.local` to version control. It's already in `.gitignore`.
-
-4. **Run database migrations**
-
-First, run the migrations in your Supabase Dashboard SQL Editor, or if you have DATABASE_URL configured:
-
-```bash
-npm run migrate
-```
-
-The migrations will set up:
-- All database tables (customers, suppliers, inventory, sales, purchases, payments, accounting)
-- Row Level Security (RLS) policies
-- Triggers and functions
-- Seed data (optional)
-
-5. **Run the development server**
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Project Structure
-
-```
-erp-finpal-system/
-├── app/
-│   ├── (auth)/                # Authentication pages
-│   │   ├── login/
-│   │   └── signup/
-│   └── (dashboard)/           # Dashboard pages
-│       ├── customers/
-│       ├── suppliers/
-│       ├── inventory/
-│       ├── sales/
-│       ├── purchases/
-│       ├── invoices/
-│       ├── payments/
-│       ├── accounting/
-│       └── reports/
-├── components/
-│   ├── ui/                    # Shadcn components
-│   └── dashboard/             # Custom components
-├── lib/
-│   ├── supabase/             # Supabase client & queries
-│   │   ├── server.ts         # Server-side client
-│   │   ├── client.ts         # Client-side client
-│   │   └── queries/          # Database queries
-│   ├── types.ts              # Global TypeScript types
-│   └── utils.ts              # Utility functions
-├── supabase/
-│   ├── migrations/           # Database migrations
-│   └── seed.sql             # Seed data
-└── .env.local               # Environment variables (not in git)
-```
-
-## Available Scripts
-
-- `npm run dev` - Start development server with Turbopack
-- `npm run build` - Build for production
-- `npm start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm run migrate` - Run database migrations
-
-## Key Features
-
-### Authentication
-- Supabase Auth with email/password
-- Row Level Security (RLS) for data isolation
-- User-specific data access
-
-### Inventory Management
-- Product catalog with SKU tracking
-- Stock level monitoring
-- Reorder point alerts
-- Cost and selling price management
-
-### Sales & Purchases
-- Create sales and purchase orders
-- Auto-generate order numbers (SO-XXXXXX, PO-XXXXXX)
-- Line item management
-- Tax calculations
-- Order status tracking
-
-### Payments
-- Record payments received from customers
-- Track payments made to suppliers
-- Multiple payment methods (Cash, M-Pesa, Bank Transfer, Cheque)
-- Payment reconciliation
-
-### Accounting
-- Chart of Accounts
-- Journal Entries
-- Trial Balance
-- Financial Reports
-
-## Troubleshooting
-
-### Database Connection Issues
-
-**Can't connect to Supabase**
-- Verify credentials in `.env.local`
-- Check Supabase project is active
-- Ensure database password is correct
-
-**Migration Errors**
-- Check if migrations already ran
-- Verify DATABASE_URL format
-- Run migrations manually in Supabase SQL Editor
-
-### Development Issues
-
-**Build Errors**
-```bash
-# Clear Next.js cache
-rm -rf .next
-npm run dev
-```
-
-**Type Errors**
-```bash
-# Reinstall dependencies
-rm -rf node_modules
-npm install
-```
-
-## Security Best Practices
-
-1. **Never commit API credentials** - They're in `.env.local` which is gitignored
-2. **Use environment variables** - All secrets should be in `.env.*` files
-3. **Enable RLS** - Row Level Security is enforced on all tables
-4. **HTTPS in production** - Always use HTTPS for production deployments
-5. **Validate inputs** - All forms use Zod validation
-
-## Production Deployment
-
-### Vercel (Recommended)
-
-1. Push code to GitHub
-2. Import project in [Vercel](https://vercel.com)
-3. Add environment variables in Vercel dashboard
-4. Deploy
-
-### Manual Deployment
-
-```bash
-npm run build
-npm start
-```
-
-Set environment variables on your hosting platform.
-
-## Testing
-
-### Test Scenarios
-
-1. **User Registration & Login**
-   - Create new user account
-   - Login with credentials
-   - Verify authentication
-
-2. **Inventory Management**
-   - Add new products
-   - Update stock levels
-   - Check reorder alerts
-
-3. **Order Processing**
-   - Create sales orders
-   - Create purchase orders
-   - Track order status
-
-4. **Payment Recording**
-   - Record customer payments
-   - Record supplier payments
-   - View payment history
-
-## Support
-
-For issues or questions:
-- 📧 Email: support@finpal.co.ke
-- 🐛 GitHub Issues: [Report a bug](https://github.com/your-repo/issues)
-
-## License
-
-MIT License - see LICENSE file for details
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+**FinPal ERP** is a modern, full-stack Enterprise Resource Planning (ERP) system designed specifically for Small and Medium Enterprises (SMEs) in the Kenyan market. It streamlines complex business operations—from inventory and sales to financial reporting and accounting—into a single, cohesive platform.
 
 ---
 
-**Built with ❤️ for small and medium businesses**
+## 📑 Table of Contents
+
+- [Core Modules](#-core-modules)
+- [System Architecture](#-system-architecture)
+- [Tech Stack](#-tech-stack)
+- [Key Features](#-key-features)
+- [Database Schema](#-database-schema)
+- [Getting Started](#-getting-started)
+- [Project Structure](#-project-structure)
+- [Reporting Suite](#-reporting-suite)
+- [Security & Compliance](#-security--compliance)
+- [License](#-license)
+
+---
+
+## 🏗️ Core Modules
+
+### 1. 📂 Financial & Accounting
+- **Chart of Accounts**: Comprehensive ledger management with hierarchical accounts.
+- **Journal Entries**: Double-entry bookkeeping for all financial transactions.
+- **General Ledger**: Real-time tracking of all account balances.
+- **Trial Balance**: Automated verification of ledger accuracy.
+
+### 2. 👥 CRM & Stakeholder Management
+- **Customer Portal**: Detailed profiles, transaction history, and outstanding balances.
+- **Supplier Directory**: Vendor management with purchase history and aged payables tracking.
+
+### 3. 📦 Inventory & Stock Control
+- **Product Catalog**: SKU tracking, categorization, and pricing management.
+- **Real-time Stock**: Automated updates on sales/purchase transactions.
+- **Reorder Point Alerts**: Proactive notifications for low-stock items.
+
+### 4. 🛒 Sales & Revenue
+- **Order Management**: End-to-end sales lifecycle from order to fulfillment.
+- **Invoicing**: Professional PDF invoice generation.
+- **Payment Collection**: Integration with M-Pesa, bank transfers, and cash.
+
+### 5. 📥 Procurement
+- **Purchase Orders**: Systematic ordering process with supplier tracking.
+- **Receiving**: Inventory updates upon delivery confirmation.
+
+---
+
+## 🌐 System Architecture
+
+```mermaid
+graph TD
+    User((User)) -->|HTTPS| Frontend[Next.js 16 App]
+    Frontend -->|Auth| SupabaseAuth[Supabase Auth]
+    Frontend -->|SQL / Realtime| SupabaseDB[Supabase Postgres]
+    Frontend -->|Queries| ReactQuery[TanStack Query]
+    SupabaseDB -->|RLS Policies| DataAccess{Data Security}
+    DataAccess -->|Isolated Data| UserData[(User Specific Data)]
+```
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 16](https://next.js) (App Router, Server Components)
+- **Frontend**: [React 19](https://react.dev), [TypeScript](https://typescriptlang.org)
+- **Styling**: [Tailwind CSS v4](https://tailwindcss.com), [Shadcn/UI](https://ui.shadcn.com)
+- **Database**: [Supabase](https://supabase.com) (PostgreSQL)
+- **State Management**: [TanStack React Query v5](https://tanstack.com/query)
+- **Forms**: React Hook Form + Zod Validation
+- **Visuals**: [Recharts](https://recharts.org), [Lucide React](https://lucide.dev)
+- **Reporting**: jspdf, html2canvas, xlsx (Export functionality)
+
+---
+
+## 📊 Reporting Suite
+
+FinPal provides a robust suite of financial reports essential for business health monitoring:
+
+| Report | Description |
+| :--- | :--- |
+| **Balance Sheet** | Real-time snapshot of Assets, Liabilities, and Equity. |
+| **Profit & Loss** | Comprehensive view of Revenue vs. Expenses. |
+| **Cash Flow** | Tracking of liquidity through operational activities. |
+| **Trial Balance** | Summary of all account balances for audit purposes. |
+| **Aged Receivables** | Detailed breakdown of outstanding customer payments. |
+| **Aged Payables** | Overview of upcoming supplier obligations. |
+
+---
+
+## 🗄️ Database Schema
+
+The system uses a highly relational PostgreSQL schema optimized for ERP performance:
+
+- **`profiles`**: User-specific preferences and settings.
+- **`chart_of_accounts`**: The financial backbone of the system.
+- **`inventory`**: Products, stock levels, and pricing.
+- **`customers` / `suppliers`**: Stakeholder entities.
+- **`invoices` / `purchase_orders`**: Transactional headers.
+- **`payments`**: Linked to specific invoices/purchases.
+
+> [!IMPORTANT]
+> **Row Level Security (RLS)** is strictly enforced. Users can only access data belonging to their organization/profile.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18.17+ or 20+
+- A Supabase Project ([Create one here](https://supabase.com))
+
+### 1. Installation
+```bash
+git clone https://github.com/your-username/erp-finpal-system.git
+cd erp-finpal-system
+npm install
+```
+
+### 2. Environment Setup
+Create a `.env.local` file:
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+DATABASE_URL=your_postgres_connection_string
+```
+
+### 3. Database Migration
+```bash
+# Set up initial schema and seed data
+npm run migrate
+```
+
+### 4. Development Server
+```bash
+npm run dev
+```
+Visit `http://localhost:3000` to see your ERP in action.
+
+---
+
+## 📁 Project Structure
+
+```text
+├── app/                  # Next.js App Router (Pages & Layouts)
+├── components/           # UI Components (Dashboard & Shared)
+├── hooks/                # Custom React Hooks
+├── lib/                  # Business Logic, Supabase Client & Queries
+├── public/               # Static Assets
+├── scripts/              # Database maintenance & Migrations
+├── supabase/             # SQL Migrations & Schema definitions
+└── types/                # Global TypeScript Interfaces
+```
+
+---
+
+## 🔐 Security & Compliance
+
+1. **Authentication**: Handled via Supabase SSR Auth with session persistence.
+2. **Data Integrity**: Enforced via PostgreSQL foreign key constraints and triggers.
+3. **Data Isolation**: Multi-tenant architecture via Row Level Security (RLS).
+4. **Validation**: Strict client and server-side validation using ZOD.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these steps:
+1. Fork the Project.
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your Changes (`git commit -m 'Add AmazingFeature'`).
+4. Push to the Branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+**Built with ❤️ for Modern Businesses**

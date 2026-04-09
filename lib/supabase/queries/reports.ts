@@ -146,31 +146,71 @@ export async function getBalanceSheet(
     } = await supabase.auth.getUser();
     if (authError || !user) throw new Error("User not authenticated");
 
-    // Fetch all active accounts
-    const { data: accounts, error } = await supabase
+    // Step 1: Fetch all active accounts for metadata and classification
+    const { data: accounts, error: accError } = await supabase
       .from("chart_of_accounts")
-      .select("*")
+      .select("id, account_code, account_name, account_type, account_category, category")
       .eq("is_active", true)
       .order("account_code");
 
-    if (error) throw error;
+    if (accError) throw accError;
 
-    // Initialize categories
+    // Step 2: Fetch all journal entries up to asOfDate (strict point-in-time)
+    const { data: journalEntries, error: jeError } = await supabase
+      .from("journal_entries")
+      .select(`
+        entry_date,
+        journal_entry_lines (
+          debit,
+          credit,
+          account_id
+        )
+      `)
+      .lte("entry_date", asOfDate);
+
+    if (jeError) throw jeError;
+
+    // Step 3: Aggregate SUM(debit) and SUM(credit) per account_id
+    const balanceMap = new Map<string, { debit: number; credit: number }>();
+
+    (journalEntries || []).forEach((entry: any) => {
+      (entry.journal_entry_lines || []).forEach((line: any) => {
+        if (!line.account_id) return;
+        const existing = balanceMap.get(line.account_id) ?? { debit: 0, credit: 0 };
+        existing.debit += Number(line.debit) || 0;
+        existing.credit += Number(line.credit) || 0;
+        balanceMap.set(line.account_id, existing);
+      });
+    });
+
+    // Step 4: Classify accounts — all classification logic preserved exactly as before
     const currentAssets: any[] = [];
     const fixedAssets: any[] = [];
     const currentLiabilities: any[] = [];
     const longTermLiabilities: any[] = [];
     const equityAccounts: any[] = [];
 
-    accounts?.forEach((account) => {
+    (accounts ?? []).forEach((account: any) => {
+      // Compute balance dynamically from journal entries
+      const journalTotals = balanceMap.get(account.id) ?? { debit: 0, credit: 0 };
+      const accountType = account.account_type?.toLowerCase();
+
+      let balance: number;
+      if (accountType === "asset" || accountType === "expense") {
+        // Debit-normal: balance = total debits - total credits
+        balance = journalTotals.debit - journalTotals.credit;
+      } else {
+        // Credit-normal: balance = total credits - total debits
+        balance = journalTotals.credit - journalTotals.debit;
+      }
+
       const accountData = {
         accountId: account.id,
         accountCode: account.account_code,
         accountName: account.account_name,
-        balance: Number(account.balance) || 0,
+        balance: Math.max(0, balance), // negative balances shown as zero (abnormal)
       };
 
-      const accountType = account.account_type?.toLowerCase();
       const code = parseInt(account.account_code);
       // Use explicit category column if available, otherwise derive it
       const category =
@@ -233,30 +273,15 @@ export async function getBalanceSheet(
     });
 
     // Calculate totals
-    const totalCurrentAssets = currentAssets.reduce(
-      (sum, acc) => sum + acc.balance,
-      0,
-    );
-    const totalFixedAssets = fixedAssets.reduce(
-      (sum, acc) => sum + acc.balance,
-      0,
-    );
+    const totalCurrentAssets = currentAssets.reduce((sum, acc) => sum + acc.balance, 0);
+    const totalFixedAssets = fixedAssets.reduce((sum, acc) => sum + acc.balance, 0);
     const totalAssets = totalCurrentAssets + totalFixedAssets;
 
-    const totalCurrentLiabilities = currentLiabilities.reduce(
-      (sum, acc) => sum + acc.balance,
-      0,
-    );
-    const totalLongTermLiabilities = longTermLiabilities.reduce(
-      (sum, acc) => sum + acc.balance,
-      0,
-    );
+    const totalCurrentLiabilities = currentLiabilities.reduce((sum, acc) => sum + acc.balance, 0);
+    const totalLongTermLiabilities = longTermLiabilities.reduce((sum, acc) => sum + acc.balance, 0);
     const totalLiabilities = totalCurrentLiabilities + totalLongTermLiabilities;
 
-    const totalEquity = equityAccounts.reduce(
-      (sum, acc) => sum + acc.balance,
-      0,
-    );
+    const totalEquity = equityAccounts.reduce((sum, acc) => sum + acc.balance, 0);
 
     return {
       asOfDate: new Date(asOfDate),
@@ -270,9 +295,12 @@ export async function getBalanceSheet(
     };
   } catch (error) {
     console.error(
-      "Error in getBalanceSheet:",
-      error instanceof Error ? error.message : error,
+      "Error in getBalanceSheet [full]:",
+      JSON.stringify(error, Object.getOwnPropertyNames(error instanceof Error ? error : Object(error))),
+      "\n[raw]:",
+      error,
     );
+    // Fallback: empty structure — same as before this fix
     return {
       asOfDate: new Date(asOfDate),
       assets: { currentAssets: [], fixedAssets: [], totalAssets: 0 },
@@ -285,6 +313,7 @@ export async function getBalanceSheet(
     };
   }
 }
+
 
 export async function getProfitLoss(
   startDate: string,
@@ -351,24 +380,88 @@ export async function getProfitLoss(
 
     const grossProfit = totalRevenue - totalCOGS;
 
-    // Operating expenses: fetch from chart of accounts (overhead costs — salaries, rent, etc.)
-    const { data: expenseAccounts } = await supabase
-      .from("chart_of_accounts")
-      .select("id, account_code, account_name, balance")
-      .ilike("account_type", "Expense")
-      .eq("is_active", true)
-      .order("account_code");
+    // Operating expenses: try period-filtered journal entries first, fall back to static balances
+    let operatingExpenseItems: {
+      accountId: string;
+      accountCode: string;
+      accountName: string;
+      balance: number;
+    }[] = [];
+    let totalOperatingExpenses = 0;
 
-    const operatingExpenseItems = (expenseAccounts || []).map((acc: any) => ({
-      accountId: acc.id,
-      accountCode: acc.account_code,
-      accountName: acc.account_name,
-      balance: Number(acc.balance) || 0,
-    }));
-    const totalOperatingExpenses = operatingExpenseItems.reduce(
-      (s, a) => s + a.balance,
-      0,
-    );
+    try {
+      // Query journal_entries as base (native date filter), embed lines + accounts
+      const { data: journalEntries, error: jeError } = await supabase
+        .from("journal_entries")
+        .select(`
+          entry_date,
+          journal_entry_lines (
+            debit,
+            credit,
+            chart_of_accounts (
+              id,
+              account_code,
+              account_name,
+              account_type
+            )
+          )
+        `)
+        .gte("entry_date", startDate)
+        .lte("entry_date", endDate);
+
+      if (jeError) throw jeError;
+
+      // Aggregate expense debits/credits across all entries in the period
+      const expenseMap = new Map<
+        string,
+        { accountId: string; accountCode: string; accountName: string; balance: number }
+      >();
+
+      (journalEntries || []).forEach((entry: any) => {
+        (entry.journal_entry_lines || []).forEach((line: any) => {
+          const account = line.chart_of_accounts;
+          if (!account || account.account_type?.toLowerCase() !== "expense") return;
+
+          const existing = expenseMap.get(account.id) || {
+            accountId: account.id,
+            accountCode: account.account_code,
+            accountName: account.account_name,
+            balance: 0,
+          };
+          // Debit increases expense balance; credit decreases it
+          existing.balance += (Number(line.debit) || 0) - (Number(line.credit) || 0);
+          expenseMap.set(account.id, existing);
+        });
+      });
+
+      const journalExpenseItems = Array.from(expenseMap.values())
+        .filter((item) => item.balance !== 0)
+        .sort((a, b) => a.accountCode.localeCompare(b.accountCode));
+
+      // Only use journal data if it actually contains expense entries
+      if (journalExpenseItems.length > 0) {
+        operatingExpenseItems = journalExpenseItems;
+        totalOperatingExpenses = journalExpenseItems.reduce((s, a) => s + a.balance, 0);
+      } else {
+        throw new Error("No expense journal entries in period — using static fallback");
+      }
+    } catch {
+      // Fallback: static chart_of_accounts balances (same as before this fix)
+      const { data: expenseAccounts } = await supabase
+        .from("chart_of_accounts")
+        .select("id, account_code, account_name, balance")
+        .ilike("account_type", "Expense")
+        .eq("is_active", true)
+        .order("account_code");
+
+      operatingExpenseItems = (expenseAccounts || []).map((acc: any) => ({
+        accountId: acc.id,
+        accountCode: acc.account_code,
+        accountName: acc.account_name,
+        balance: Number(acc.balance) || 0,
+      }));
+      totalOperatingExpenses = operatingExpenseItems.reduce((s, a) => s + a.balance, 0);
+    }
 
     const netProfit = grossProfit - totalOperatingExpenses;
 
@@ -516,69 +609,132 @@ export async function getCashFlow(
 export async function getTrialBalance(
   asOfDate?: string,
 ): Promise<TrialBalanceData> {
+  const effectiveDate = asOfDate ?? new Date().toISOString().split("T")[0];
+
   try {
     const supabase = await createClient();
 
-    // Fetch all active accounts (using actual DB column names)
-    const { data: accounts, error } = await supabase
+    // Step 1: Fetch all active accounts for metadata (code, name, type)
+    const { data: accounts, error: accError } = await supabase
       .from("chart_of_accounts")
-      .select("*")
+      .select("id, account_code, account_name, account_type")
       .eq("is_active", true)
       .order("account_code");
 
-    if (error) throw error;
+    if (accError) throw accError;
 
+    // Step 2: Fetch all journal entries up to asOfDate, embedding their lines and account info
+    const { data: journalEntries, error: jeError } = await supabase
+      .from("journal_entries")
+      .select(`
+        entry_date,
+        journal_entry_lines (
+          debit,
+          credit,
+          account_id
+        )
+      `)
+      .lte("entry_date", effectiveDate);
+
+    if (jeError) throw jeError;
+
+    // Step 3: Aggregate SUM(debit) and SUM(credit) per account_id from journal entries
+    const balanceMap = new Map<string, { debit: number; credit: number }>();
+
+    (journalEntries || []).forEach((entry: any) => {
+      (entry.journal_entry_lines || []).forEach((line: any) => {
+        if (!line.account_id) return;
+        const existing = balanceMap.get(line.account_id) ?? { debit: 0, credit: 0 };
+        existing.debit += Number(line.debit) || 0;
+        existing.credit += Number(line.credit) || 0;
+        balanceMap.set(line.account_id, existing);
+      });
+    });
+
+    // Step 4: Build trial balance rows — all accounts shown, zero if no journal activity
     let totalDebit = 0;
     let totalCredit = 0;
 
-    const trialBalanceAccounts =
-      accounts?.map((account) => {
-        const balance = Number(account.balance) || 0;
-        const accountType = account.account_type?.toLowerCase();
+    const trialBalanceAccounts = (accounts ?? []).map((account: any) => {
+      const journalTotals = balanceMap.get(account.id) ?? { debit: 0, credit: 0 };
+      // Net balance = total debits posted minus total credits posted for this account
+      const netBalance = journalTotals.debit - journalTotals.credit;
+      const accountType = account.account_type?.toLowerCase();
 
-        // Asset and Expense accounts have debit balances
-        // Liability, Equity, and Revenue accounts have credit balances
-        let debit = 0;
-        let credit = 0;
+      let debit = 0;
+      let credit = 0;
 
-        if (accountType === "asset" || accountType === "expense") {
-          debit = balance;
-          totalDebit += balance;
-        } else if (
-          accountType === "liability" ||
-          accountType === "equity" ||
-          accountType === "revenue"
-        ) {
-          credit = balance;
-          totalCredit += balance;
-        }
+      // Normal balance rules:
+      // Debit-normal: Asset, Expense → positive net balance shows in Debit column
+      // Credit-normal: Liability, Equity, Revenue → positive net balance shows in Credit column
+      if (accountType === "asset" || accountType === "expense") {
+        debit = netBalance > 0 ? netBalance : 0;
+        credit = netBalance < 0 ? Math.abs(netBalance) : 0; // abnormal credit balance
+      } else if (
+        accountType === "liability" ||
+        accountType === "equity" ||
+        accountType === "revenue"
+      ) {
+        credit = netBalance < 0 ? Math.abs(netBalance) : 0; // net credit balance
+        // For credit-normal accounts: SUM(credit) - SUM(debit) gives the normal balance
+        const creditNormalBalance = journalTotals.credit - journalTotals.debit;
+        credit = creditNormalBalance > 0 ? creditNormalBalance : 0;
+        debit = creditNormalBalance < 0 ? Math.abs(creditNormalBalance) : 0; // abnormal debit
+      }
 
-        return {
-          accountCode: account.account_code,
-          accountName: account.account_name,
-          debit,
-          credit,
-        };
-      }) || [];
+      totalDebit += debit;
+      totalCredit += credit;
+
+      return {
+        accountCode: account.account_code,
+        accountName: account.account_name,
+        debit,
+        credit,
+      };
+    });
 
     return {
-      asOfDate: asOfDate ? new Date(asOfDate) : new Date(),
+      asOfDate: new Date(effectiveDate),
       accounts: trialBalanceAccounts,
       totalDebits: totalDebit,
       totalCredits: totalCredit,
-      isBalanced: Math.abs(totalDebit - totalCredit) < 0.01, // Allow for small rounding differences
+      isBalanced: Math.abs(totalDebit - totalCredit) < 0.01,
     };
   } catch (error) {
     console.error("Error in getTrialBalance:", error);
-    return {
-      asOfDate: new Date(),
-      accounts: [],
-      totalDebits: 0,
-      totalCredits: 0,
-      isBalanced: true,
-    };
+    // Fallback: return all accounts with zero balances (same as before this fix)
+    try {
+      const supabase = await createClient();
+      const { data: accounts } = await supabase
+        .from("chart_of_accounts")
+        .select("id, account_code, account_name, account_type")
+        .eq("is_active", true)
+        .order("account_code");
+
+      return {
+        asOfDate: new Date(effectiveDate),
+        accounts: (accounts ?? []).map((account: any) => ({
+          accountCode: account.account_code,
+          accountName: account.account_name,
+          debit: 0,
+          credit: 0,
+        })),
+        totalDebits: 0,
+        totalCredits: 0,
+        isBalanced: true,
+      };
+    } catch {
+      return {
+        asOfDate: new Date(effectiveDate),
+        accounts: [],
+        totalDebits: 0,
+        totalCredits: 0,
+        isBalanced: true,
+      };
+    }
   }
 }
+
 
 export async function getAgedReceivables(): Promise<AgedReceivablesData[]> {
   try {
@@ -664,10 +820,10 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
 
     console.log("Fetching aged payables...");
 
-    // Fetch all purchases with supplier information and payment status
+    // Fetch all purchases with supplier info including payment_terms for due date calculation
     const { data: purchases, error } = await supabase
       .from("purchases")
-      .select("*, suppliers(name)")
+      .select("*, suppliers(name, payment_terms)")
       .order("order_date", { ascending: false });
 
     console.log("Aged payables query result:", {
@@ -699,10 +855,15 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
 
       if (amountDue <= 0) return; // Skip paid purchases
 
-      // Use order_date for aging (days since purchase was made)
-      const purchaseDate = new Date(purchase.order_date);
+      // Use payment due date for aging: order_date + supplier payment terms (days)
+      // This correctly measures how long PAST DUE the obligation is, not just how old the PO is.
+      const paymentTermsDays = purchase.suppliers?.payment_terms ?? 30;
+      const orderDate = new Date(purchase.order_date);
+      const dueDate = new Date(
+        orderDate.getTime() + paymentTermsDays * 24 * 60 * 60 * 1000,
+      );
       const daysOverdue = Math.floor(
-        (today.getTime() - purchaseDate.getTime()) / (1000 * 60 * 60 * 24),
+        (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
       );
 
       // Get or create supplier entry

@@ -223,14 +223,17 @@ export function AccountFormDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Parent Account</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select 
+                      onValueChange={(val) => field.onChange(val === "none" ? "" : val)} 
+                      value={field.value || "none"}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="None (top-level)" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None (top-level)</SelectItem>
+                        <SelectItem value="none">None (top-level)</SelectItem>
                         {accounts
                           .filter((acc) => acc.type === watchType)
                           .map((account) => (

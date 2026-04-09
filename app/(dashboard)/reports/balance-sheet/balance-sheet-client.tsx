@@ -18,7 +18,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { exportBalanceSheetToExcel } from "@/lib/utils/excel-export";
-import { Printer, Calendar as CalendarIcon, FileSpreadsheet } from "lucide-react";
+import { Printer, Calendar as CalendarIcon, FileSpreadsheet, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -253,6 +253,47 @@ export default function BalanceSheetClient({
                             </Card>
                         ))}
                     </div>
+
+                    {/* Accounting Equation Validation (read-only) */}
+                    {(() => {
+                        const totalLiabilitiesAndEquity =
+                            initialData.liabilities.totalLiabilities + initialData.equity.totalEquity;
+                        const difference =
+                            initialData.assets.totalAssets - totalLiabilitiesAndEquity;
+                        const isBalanced = Math.abs(difference) < 0.01;
+
+                        return (
+                            <Card className={`mt-4 border-2 ${isBalanced ? "border-emerald-500/50 bg-emerald-50/50 dark:bg-emerald-950/20" : "border-destructive/50 bg-destructive/5 dark:bg-destructive/10"}`}>
+                                <CardContent className="pt-6">
+                                    <div className="flex items-start gap-3">
+                                        {isBalanced ? (
+                                            <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                                        ) : (
+                                            <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                                        )}
+                                        <div className="space-y-1">
+                                            <p className={`font-semibold ${isBalanced ? "text-emerald-700 dark:text-emerald-300" : "text-destructive"}`}>
+                                                {isBalanced
+                                                    ? "Accounting Equation Balanced ✓"
+                                                    : "Accounting Equation Imbalanced"}
+                                            </p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Assets ({formatCurrency(initialData.assets.totalAssets)})
+                                                {isBalanced ? " = " : " ≠ "}
+                                                Liabilities + Equity ({formatCurrency(totalLiabilitiesAndEquity)})
+                                            </p>
+                                            {!isBalanced && (
+                                                <p className="text-sm text-destructive font-medium">
+                                                    Difference: {formatCurrency(Math.abs(difference))}
+                                                    {" "}— This may indicate missing journal entries or unposted transactions.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    })()}
 
                     <div className="hidden print:block mt-8 pt-4 border-t text-center text-sm text-muted-foreground">
                         <p>Generated on {formatDate(new Date())} at {format(new Date(), "p")}</p>

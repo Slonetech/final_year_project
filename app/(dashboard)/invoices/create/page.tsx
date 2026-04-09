@@ -258,14 +258,20 @@ export default function CreateInvoicePage() {
                     <div className="col-span-12 md:col-span-4">
                       <Label htmlFor={`lines.${index}.productId`}>Product (Optional)</Label>
                       <Select
-                        value={lines[index]?.productId || ""}
-                        onValueChange={(value) => handleProductSelect(index, value)}
+                        value={lines[index]?.productId || "custom"}
+                        onValueChange={(value) => {
+                          if (value === "custom") {
+                            setValue(`lines.${index}.productId`, "");
+                          } else {
+                            handleProductSelect(index, value);
+                          }
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select product" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Custom item</SelectItem>
+                          <SelectItem value="custom">Custom item</SelectItem>
                           {loadingProducts ? (
                             <SelectItem value="loading" disabled>
                               Loading products...

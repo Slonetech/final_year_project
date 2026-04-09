@@ -43,10 +43,14 @@ export async function getById(id: string) {
   return {
     ...mapped,
     supplierName: data.suppliers?.name || '',
-    lines: data.purchase_items?.map((item: any) => ({
-      ...mapToCamelCase(item),
-      productName: item.inventory?.name || ''
-    })) || []
+    lines: data.purchase_items?.map((item: any) => {
+      const mapped = mapToCamelCase(item);
+      return {
+        ...mapped,
+        total: mapped.totalPrice || (mapped.quantity * mapped.unitPrice) || 0,
+        productName: item.inventory?.name || ''
+      };
+    }) || []
   } as any
 }
 
