@@ -89,7 +89,7 @@ export async function getLowStockAlerts() {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('inventory')
-    .select('id, name, quantity, reorder_level')
+    .select('id, name, stock_level, reorder_point')
 
   if (error) {
     console.error("Error fetching low stock alerts:", error)
@@ -97,13 +97,13 @@ export async function getLowStockAlerts() {
   }
 
   // Filter in JS to avoid PostgREST column-to-column comparison limitation
-  const lowStock = (data || []).filter(item => item.quantity < item.reorder_level)
+  const lowStock = (data || []).filter(item => item.stock_level < item.reorder_point)
 
   return lowStock.map(item => ({
     productId: item.id,
     productName: item.name,
-    currentStock: item.quantity,
-    reorderPoint: item.reorder_level
+    currentStock: item.stock_level,
+    reorderPoint: item.reorder_point
   }))
 }
 

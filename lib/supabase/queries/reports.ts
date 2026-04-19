@@ -811,29 +811,32 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
   try {
     const supabase = await createClient();
 
-    console.log("Fetching aged payables...");
-
-    // Fetch all purchases with supplier info including payment_terms for due date calculation
-    const { data: purchases, error } = await supabase
+    console.log("Fetching aged payables data...");
+    
+    // 1. Fetch all purchases (ASC to enable FIFO allocation)
+    const { data: purchases, error: pError } = await supabase
       .from("purchases")
-      .select("*, suppliers(name, payment_terms)")
-      .order("order_date", { ascending: false });
+      .select("*, suppliers(id, name, payment_terms)")
+      .order("order_date", { ascending: true });
 
-    console.log("Aged payables query result:", {
-      purchasesCount: purchases?.length,
-      purchases: purchases?.map((p) => ({
-        supplier: p.suppliers?.name,
-        orderDate: p.order_date,
-        total: p.total,
-        amountPaid: p.amount_paid,
-        due: (p.total || 0) - (p.amount_paid || 0),
-      })),
-      error,
+    if (pError) throw pError;
+
+    // 2. Fetch all payments made to suppliers
+    const { data: payments, error: payError } = await supabase
+      .from("payments")
+      .select("amount, supplier_id")
+      .eq("type", "made");
+
+    if (payError) throw payError;
+
+    // 3. Group payments by supplier to create a pool of funds to offset balances
+    const paymentPool = new Map<string, number>();
+    payments?.forEach(p => {
+      const current = paymentPool.get(p.supplier_id) || 0;
+      paymentPool.set(p.supplier_id, current + (Number(p.amount) || 0));
     });
 
-    if (error) throw error;
-
-    // Group by supplier and calculate aging
+    // 4. Group by supplier and calculate aging using FIFO allocation
     const supplierMap = new Map<string, AgedPayablesData>();
     const today = new Date();
 
@@ -841,15 +844,20 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
       const supplierId = purchase.supplier_id;
       const supplierName = purchase.suppliers?.name || "Unknown Supplier";
 
-      // Calculate amount due
+      // Calculate amount due using FIFO: take from supplier's payment pool
       const totalAmount = Number(purchase.total) || 0;
-      const amountPaid = Number(purchase.amount_paid) || 0;
-      const amountDue = totalAmount - amountPaid;
+      const totalPaymentsForSupplier = paymentPool.get(supplierId) || 0;
 
-      if (amountDue <= 0) return; // Skip paid purchases
+      // Amount "already paid" for this specific PO according to FIFO
+      const offset = Math.min(totalPaymentsForSupplier, totalAmount);
+      const amountDue = totalAmount - offset;
 
-      // Use payment due date for aging: order_date + supplier payment terms (days)
-      // This correctly measures how long PAST DUE the obligation is, not just how old the PO is.
+      // Deduct the used payment amount from the pool for the next (newer) purchase
+      paymentPool.set(supplierId, totalPaymentsForSupplier - offset);
+
+      if (amountDue <= 0) return; // Skip fully paid purchases
+
+      // Calculate aging based on order_date + supplier payment terms
       const paymentTermsDays = purchase.suppliers?.payment_terms ?? 30;
       const orderDate = new Date(purchase.order_date);
       const dueDate = new Date(
@@ -859,7 +867,7 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
         (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
       );
 
-      // Get or create supplier entry
+      // Get or create supplier entry in the aging map
       if (!supplierMap.has(supplierId)) {
         supplierMap.set(supplierId, {
           supplierId,
@@ -875,17 +883,17 @@ export async function getAgedPayables(): Promise<AgedPayablesData[]> {
 
       const supplierData = supplierMap.get(supplierId)!;
 
-      // Align with UI columns: Current | 1-30 Days | 31-60 Days | 61-90 Days | Over 90 Days
+      // Distribute amountDue into appropriate aging buckets
       if (daysOverdue <= 0) {
-        supplierData.current += amountDue; // Not yet due
+        supplierData.current += amountDue;
       } else if (daysOverdue <= 30) {
-        supplierData.days30 += amountDue; // 1-30 days
+        supplierData.days30 += amountDue;
       } else if (daysOverdue <= 60) {
-        supplierData.days60 += amountDue; // 31-60 days
+        supplierData.days60 += amountDue;
       } else if (daysOverdue <= 90) {
-        supplierData.days90 += amountDue; // 61-90 days
+        supplierData.days90 += amountDue;
       } else {
-        supplierData.over90 += amountDue; // Over 90 days
+        supplierData.over90 += amountDue;
       }
 
       supplierData.total += amountDue;

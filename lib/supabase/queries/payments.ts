@@ -5,13 +5,17 @@ import { mapToSnakeCase, mapToCamelCase, mapArrayToCamelCase } from '../../utils
 export async function getAll(type: string = "all") {
   const supabase = await createClient()
 
-  // Join with customers and suppliers to get names
+  // Join with customers, suppliers, and invoices (to get customer from invoice if direct FK is null)
   let q = supabase
     .from('payments')
     .select(`
       *,
       customers(name),
-      suppliers(name)
+      suppliers(name),
+      invoices(
+        customer_id,
+        customers(name)
+      )
     `)
     .order('payment_date', { ascending: false })
 
@@ -34,7 +38,7 @@ export async function getAll(type: string = "all") {
     date: item.payment_date,
     method: item.method || 'cash',
     type: item.type || 'made',
-    customerName: item.customers?.name || '',
+    customerName: item.customers?.name || item.invoices?.customers?.name || '',
     supplierName: item.suppliers?.name || '',
     amount: Number(item.amount) || 0,
   })) as any[]
