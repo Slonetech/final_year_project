@@ -40,8 +40,8 @@ import { Supplier, Product } from "@/lib/types";
 const lineItemSchema = z.object({
   inventoryId: z.string().min(1, "Product is required"),
   productName: z.string(),
-  quantity: z.number().min(1, "Quantity must be at least 1"),
-  unitPrice: z.number().min(0, "Unit price must be positive"),
+  quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+  unitPrice: z.coerce.number().min(0, "Unit price must be positive"),
   totalPrice: z.number(),
 });
 
@@ -50,7 +50,7 @@ const purchaseOrderSchema = z.object({
   orderDate: z.string().min(1, "Order date is required"),
   expectedDate: z.string().optional(),
   status: z.enum(["pending", "approved", "received", "completed"]),
-  taxRate: z.number().min(0).max(100),
+  taxRate: z.coerce.number().min(0).max(100),
   notes: z.string().optional(),
   lines: z.array(lineItemSchema).min(1, "Add at least one item"),
 });
@@ -101,16 +101,22 @@ export function PurchaseOrderFormDialog({
   const watchLines = form.watch("lines");
   const watchTaxRate = form.watch("taxRate");
 
-  // Calculate totals
-  const subtotal = watchLines.reduce((sum, line) => sum + (line.totalPrice || 0), 0);
-  const taxAmount = (subtotal * watchTaxRate) / 100;
+  // Calculate totals - Re-derive from source fields to avoid staleness
+  const subtotal = watchLines.reduce((sum, line) => {
+    const qty = Number(line.quantity) || 0;
+    const price = Number(line.unitPrice) || 0;
+    return sum + (qty * price);
+  }, 0);
+  
+  const taxAmount = Math.round((subtotal * watchTaxRate) / 100 * 100) / 100;
   const total = subtotal + taxAmount;
 
   // Update line total when quantity or unitPrice changes
   useEffect(() => {
     watchLines.forEach((line, index) => {
-      const lineTotal = line.quantity * line.unitPrice;
-      if (line.totalPrice !== lineTotal) {
+      const lineTotal = Math.round((Number(line.quantity || 0) * Number(line.unitPrice || 0)) * 100) / 100;
+      // Stability check to prevent infinite loops
+      if (Math.abs((line.totalPrice || 0) - lineTotal) > 0.001) {
         form.setValue(`lines.${index}.totalPrice`, lineTotal);
       }
     });
@@ -119,15 +125,20 @@ export function PurchaseOrderFormDialog({
   const onSubmit = (data: PurchaseOrderFormData) => {
     startTransition(async () => {
       try {
+        // Use fresh derivations for final submission
+        const finalSubtotal = data.lines.reduce((sum, line) => sum + (line.quantity * line.unitPrice), 0);
+        const finalTaxAmount = Math.round((finalSubtotal * data.taxRate) / 100 * 100) / 100;
+        const finalTotal = finalSubtotal + finalTaxAmount;
+
         const purchaseData = {
           supplierId: data.supplierId,
           orderDate: new Date(data.orderDate),
           expectedDate: data.expectedDate ? new Date(data.expectedDate) : undefined,
           status: data.status,
           taxRate: data.taxRate,
-          taxAmount: taxAmount,
-          subtotal: subtotal,
-          total: total,
+          taxAmount: finalTaxAmount,
+          subtotal: finalSubtotal,
+          total: finalTotal,
           notes: data.notes || "",
         };
 
@@ -347,7 +358,7 @@ export function PurchaseOrderFormDialog({
                     <div className="col-span-2">
                       <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Total</label>
                       <div className="h-10 flex items-center font-medium">
-                        {formatCurrency(watchLines[index]?.totalPrice || 0)}
+                        {formatCurrency((watchLines[index]?.quantity || 0) * (watchLines[index]?.unitPrice || 0))}
                       </div>
                     </div>
 

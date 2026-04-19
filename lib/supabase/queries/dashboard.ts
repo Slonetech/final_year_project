@@ -3,10 +3,44 @@ import { createClient } from '../server'
 export async function getDashboardKPIs() {
   const supabase = await createClient()
 
-  // Fetch real data from Supabase
-  const { data: invoices } = await supabase.from('invoices').select('total_amount')
-  const { data: payments } = await supabase.from('payments').select('amount, type')
-  const { data: purchases } = await supabase.from('purchases').select('total')
+  // Fetch real data from Supabase including dates for trend analysis
+  const { data: invoices } = await supabase.from('invoices').select('total_amount, issue_date')
+  const { data: payments } = await supabase.from('payments').select('amount, type, payment_date')
+  const { data: purchases } = await supabase.from('purchases').select('total, order_date')
+
+  // Setup date boundaries
+  const now = new Date()
+  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+
+  // Helper for percentage change calculation
+  const calculateChange = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0
+    return parseFloat(((current - previous) / previous * 100).toFixed(1))
+  }
+
+  // Derive current and previous period totals for trends
+  const currRevenue = invoices?.filter(inv => new Date(inv.issue_date) >= startOfCurrentMonth)
+    .reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0
+  const prevRevenue = invoices?.filter(inv => {
+    const d = new Date(inv.issue_date);
+    return d >= startOfPrevMonth && d <= endOfPrevMonth;
+  }).reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0
+
+  const currExpenses = purchases?.filter(pur => new Date(pur.order_date) >= startOfCurrentMonth)
+    .reduce((sum, pur) => sum + Number(pur.total), 0) || 0
+  const prevExpenses = purchases?.filter(pur => {
+    const d = new Date(pur.order_date);
+    return d >= startOfPrevMonth && d <= endOfPrevMonth;
+  }).reduce((sum, pur) => sum + Number(pur.total), 0) || 0
+
+  const currCashChange = payments?.filter(p => new Date(p.payment_date) >= startOfCurrentMonth)
+    .reduce((sum, p) => p.type === 'received' ? sum + Number(p.amount) : sum - Number(p.amount), 0) || 0
+  const prevCashChange = payments?.filter(p => {
+    const d = new Date(p.payment_date);
+    return d >= startOfPrevMonth && d <= endOfPrevMonth;
+  }).reduce((sum, p) => p.type === 'received' ? sum + Number(p.amount) : sum - Number(p.amount), 0) || 0
 
   const totalRevenue = invoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0
   const totalExpenses = purchases?.reduce((sum, pur) => sum + Number(pur.total), 0) || 0
@@ -18,13 +52,13 @@ export async function getDashboardKPIs() {
 
   return {
     totalRevenue,
-    revenueChange: +12.5, // Mock change for now
+    revenueChange: calculateChange(currRevenue, prevRevenue),
     totalExpenses,
-    expensesChange: -5.2,
+    expensesChange: calculateChange(currExpenses, prevExpenses),
     netProfit: totalRevenue - totalExpenses,
-    profitChange: +8.1,
+    profitChange: calculateChange(currRevenue - currExpenses, prevRevenue - prevExpenses),
     cashBalance,
-    cashChange: +2.4
+    cashChange: calculateChange(currCashChange, prevCashChange)
   }
 }
 
