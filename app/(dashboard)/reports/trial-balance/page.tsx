@@ -1,6 +1,9 @@
 import { reportsApi } from "@/lib/supabase/queries/reports";
 import TrialBalanceClient from "./trial-balance-client";
 
+export const dynamic = 'force-dynamic';
+
+
 export default async function TrialBalancePage({
   searchParams,
 }: {

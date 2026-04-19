@@ -5,12 +5,16 @@ export async function getDashboardKPIs() {
 
   // Fetch real data from Supabase
   const { data: invoices } = await supabase.from('invoices').select('total_amount')
-  const { data: payments } = await supabase.from('payments').select('amount')
+  const { data: payments } = await supabase.from('payments').select('amount, type')
   const { data: purchases } = await supabase.from('purchases').select('total')
 
   const totalRevenue = invoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0
   const totalExpenses = purchases?.reduce((sum, pur) => sum + Number(pur.total), 0) || 0
-  const cashBalance = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0
+  const cashBalance = payments?.reduce((sum, p) => {
+    return p.type === 'received'
+      ? sum + Number(p.amount)
+      : sum - Number(p.amount)
+  }, 0) || 0
 
   return {
     totalRevenue,
@@ -51,7 +55,7 @@ export async function getLowStockAlerts() {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('inventory')
-    .select('id, name, stock_level, reorder_point')
+    .select('id, name, quantity, reorder_level')
 
   if (error) {
     console.error("Error fetching low stock alerts:", error)
@@ -59,13 +63,13 @@ export async function getLowStockAlerts() {
   }
 
   // Filter in JS to avoid PostgREST column-to-column comparison limitation
-  const lowStock = (data || []).filter(item => item.stock_level < item.reorder_point)
+  const lowStock = (data || []).filter(item => item.quantity < item.reorder_level)
 
   return lowStock.map(item => ({
     productId: item.id,
     productName: item.name,
-    currentStock: item.stock_level,
-    reorderPoint: item.reorder_point
+    currentStock: item.quantity,
+    reorderPoint: item.reorder_level
   }))
 }
 
@@ -113,9 +117,9 @@ export async function getSalesExpensesTrend() {
   // Fetch invoices and purchases from October 2025 onwards
   const { data: allInvoices } = await supabase
     .from('invoices')
-    .select('total_amount, invoice_date')
-    .gte('invoice_date', startDate.toISOString().split('T')[0])
-    .order('invoice_date')
+    .select('total_amount, issue_date')
+    .gte('issue_date', startDate.toISOString().split('T')[0])
+    .order('issue_date')
 
   const { data: allPurchases } = await supabase
     .from('purchases')
@@ -137,7 +141,7 @@ export async function getSalesExpensesTrend() {
 
   // Aggregate invoices (sales) by month
   allInvoices?.forEach((inv: any) => {
-    const date = new Date(inv.invoice_date)
+    const date = new Date(inv.issue_date)
     const monthKey = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' })
     if (monthlyData.has(monthKey)) {
       const current = monthlyData.get(monthKey)!

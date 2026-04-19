@@ -208,7 +208,7 @@ export interface Invoice {
   amountDue: number;
   notes?: string;
   termsAndConditions?: string;
-  createdBy: string;
+  userId: string;
   createdAt: Date;
   updatedAt: Date;
 }

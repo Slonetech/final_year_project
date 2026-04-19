@@ -1,6 +1,9 @@
 import { reportsApi } from "@/lib/supabase/queries/reports";
 import ProfitLossClient from "./profit-loss-client";
 
+export const dynamic = 'force-dynamic';
+
+
 export default async function ProfitLossPage({
   searchParams,
 }: {

@@ -128,7 +128,7 @@ export default function CreateInvoicePage() {
       vatRate: vatRate,
       total: total,
       notes: data.notes || undefined,
-      createdBy: "user-1", // Mock user
+      userId: "user-1", // Mock user
     };
 
     try {

@@ -37,10 +37,10 @@ import { toast } from "sonner";
 import { SalesOrderFormDialog } from "./sales-order-form-dialog";
 
 const statusColor: Record<string, string> = {
-    quote: "bg-muted text-muted-foreground border",
-    order: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-    delivered: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    paid: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    quote: "bg-gray-100 text-gray-700 border border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
+    order: "bg-yellow-500 text-white dark:bg-yellow-500 dark:text-white",
+    delivered: "bg-blue-600 text-white dark:bg-blue-500 dark:text-white",
+    paid: "bg-green-600 text-white dark:bg-green-500 dark:text-white",
 };
 
 export default function SalesClient({

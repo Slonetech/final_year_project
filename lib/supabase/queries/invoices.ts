@@ -73,11 +73,51 @@ export async function create(invoice: any) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  // 1. Generate sequential invoice number (INV-1001 base)
+  const { count } = await supabase
+    .from('invoices')
+    .select('*', { count: 'exact', head: true })
+
+  const nextNumber = (count || 0) + 1001
+  const invoiceNumber = `INV-${nextNumber}`
+
+  // 2. Destructure data from the frontend
+  const {
+    customerId,      // -> customer_id
+    invoiceDate,     // -> issue_date
+    dueDate,         // -> due_date
+    status,          // -> status
+    total,           // -> total_amount
+    vatAmount,       // -> tax_amount
+    userId,          // fallback for user_id
+    // FIELDS TO EXCLUDE (These do not exist in the 'invoices' table schema)
+    customerName,
+    customerEmail,
+    customerAddress,
+    lines,
+    subtotal,
+    vatRate,
+    withholdingTax,
+    withholdingTaxRate,
+    notes,
+    termsAndConditions,
+    ...rest
+  } = invoice
+
+  // 3. Perform the sanitized Insert
   const { data, error } = await supabase
     .from('invoices')
     .insert({
-      ...mapToSnakeCase(invoice),
-      user_id: user?.id
+      invoice_number: invoiceNumber,
+      customer_id: customerId,
+      issue_date: invoiceDate ? new Date(invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      due_date: dueDate ? new Date(dueDate).toISOString().split('T')[0] : null,
+      status: status || 'unpaid',
+      total_amount: Number(total) || 0,
+      tax_amount: Number(vatAmount) || 0,
+      amount_paid: 0,
+      amount_due: Number(total) || 0,
+      user_id: user?.id || userId
     })
     .select()
     .single()

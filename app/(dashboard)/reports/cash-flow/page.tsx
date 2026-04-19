@@ -1,6 +1,9 @@
 import { reportsApi } from "@/lib/supabase/queries/reports";
 import CashFlowClient from "./cash-flow-client";
 
+export const dynamic = 'force-dynamic';
+
+
 export default async function CashFlowPage({
   searchParams,
 }: {

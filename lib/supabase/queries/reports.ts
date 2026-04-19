@@ -121,6 +121,7 @@ async function fetchPurchasesForProfitLoss(
       .select(attempt.selectClause)
       .gte(attempt.dateColumn, startDate)
       .lte(attempt.dateColumn, endDate)
+      .in("status", ["received", "completed"])
       .order(attempt.dateColumn);
 
     if (!error) {
@@ -715,36 +716,15 @@ export async function getTrialBalance(
     };
   } catch (error) {
     console.error("Error in getTrialBalance:", error);
-    // Fallback: return all accounts with zero balances (same as before this fix)
-    try {
-      const supabase = await createClient();
-      const { data: accounts } = await supabase
-        .from("chart_of_accounts")
-        .select("id, account_code, account_name, account_type")
-        .eq("is_active", true)
-        .order("account_code");
-
-      return {
-        asOfDate: new Date(effectiveDate),
-        accounts: (accounts ?? []).map((account: any) => ({
-          accountCode: account.account_code,
-          accountName: account.account_name,
-          debit: 0,
-          credit: 0,
-        })),
-        totalDebits: 0,
-        totalCredits: 0,
-        isBalanced: true,
-      };
-    } catch {
-      return {
-        asOfDate: new Date(effectiveDate),
-        accounts: [],
-        totalDebits: 0,
-        totalCredits: 0,
-        isBalanced: true,
-      };
-    }
+    // Return empty structure with isBalanced: false so the UI surfaces the failure
+    // rather than silently showing a "Balanced" report with all-zero data.
+    return {
+      asOfDate: new Date(effectiveDate),
+      accounts: [],
+      totalDebits: 0,
+      totalCredits: 0,
+      isBalanced: false,
+    };
   }
 }
 

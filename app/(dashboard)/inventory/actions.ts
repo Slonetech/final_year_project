@@ -1,8 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { create, update, remove } from "@/lib/supabase/queries/inventory";
+import { getAll, getById, create, update, remove } from "@/lib/supabase/queries/inventory";
 import { CreateProductDto, UpdateProductDto } from "@/lib/types";
+
+export async function getProductsAction(query?: string, category: string = "all") {
+  return await getAll(query, category);
+}
+
+export async function getProductAction(id: string) {
+  return await getById(id);
+}
 
 export async function createProductAction(data: CreateProductDto) {
   const result = await create(data);
@@ -21,3 +29,4 @@ export async function deleteProductAction(id: string) {
   revalidatePath("/inventory");
   return result;
 }
+

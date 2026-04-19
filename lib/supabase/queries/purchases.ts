@@ -62,6 +62,8 @@ export async function create(purchase: CreatePurchaseOrderDto, items: any[]) {
     .from('purchases')
     .insert({
       ...mapToSnakeCase(purchase),
+      tax_amount: purchase.taxAmount || 0,
+      total: purchase.total || 0,
       user_id: user?.id
     })
     .select()
