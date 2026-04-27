@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -101,20 +101,11 @@ export function SalesOrderFormDialog({
   const watchLines = form.watch("lines");
   const watchTaxRate = form.watch("taxRate");
 
-  // Calculate totals
-  const subtotal = watchLines.reduce((sum, line) => sum + (line.totalPrice || 0), 0);
+  // Calculate totals inline from live quantity × unitPrice — no useEffect needed
+  const subtotal = watchLines.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unitPrice) || 0), 0);
   const taxAmount = (subtotal * watchTaxRate) / 100;
   const total = subtotal + taxAmount;
 
-  // Update line total when quantity or unitPrice changes
-  useEffect(() => {
-    watchLines.forEach((line, index) => {
-      const lineTotal = line.quantity * line.unitPrice;
-      if (line.totalPrice !== lineTotal) {
-        form.setValue(`lines.${index}.totalPrice`, lineTotal);
-      }
-    });
-  }, [watchLines, form]);
 
   const onSubmit = (data: SalesOrderFormData) => {
     startTransition(async () => {
@@ -347,7 +338,7 @@ export function SalesOrderFormDialog({
                     <div className="col-span-2">
                       <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Total</label>
                       <div className="h-10 flex items-center font-medium">
-                        {formatCurrency(watchLines[index]?.totalPrice || 0)}
+                        {formatCurrency((Number(watchLines[index]?.quantity) || 0) * (Number(watchLines[index]?.unitPrice) || 0))}
                       </div>
                     </div>
 

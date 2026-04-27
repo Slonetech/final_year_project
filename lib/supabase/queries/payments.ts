@@ -59,19 +59,28 @@ export async function getById(id: string) {
 export async function create(payment: CreatePaymentDto) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-
+  // Strip all derived/relational fields that don't exist as DB columns
+  const { customerName, supplierName, date, createdBy, ...rest } = payment as any
   const { data, error } = await supabase
     .from('payments')
     .insert({
-      ...mapToSnakeCase(payment),
-      user_id: user?.id
+      type: rest.type,
+      amount: rest.amount,
+      method: rest.method,
+      reference: rest.reference ?? null,
+      customer_id: rest.customerId || null,
+      supplier_id: rest.supplierId || null,
+      invoice_id: rest.invoiceId || null,
+      notes: rest.notes ?? null,
+      payment_date: date,
+      user_id: user?.id,
     })
     .select()
     .single()
-
   if (error) throw error
   return mapToCamelCase(data)
 }
+
 
 export async function remove(id: string) {
   const supabase = await createClient()

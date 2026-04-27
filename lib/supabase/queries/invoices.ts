@@ -60,12 +60,32 @@ export async function getById(id: string) {
 
   // Map and flatten nested data
   const mapped = mapToCamelCase(data)
+  
+  // Extract lines from sale_items via the linked sale
+  const sale = data.sales;
+  const lines = sale?.sale_items?.map((item: any) => ({
+    id: item.id,
+    productId: item.inventory_id,
+    description: item.inventory?.name || 'Product',
+    quantity: Number(item.quantity) || 0,
+    unitPrice: Number(item.unit_price) || 0,
+    total: Number(item.total_price) || 0
+  })) || [];
+
   return {
     ...mapped,
     customerName: data.customers?.name || '',
-    totalAmount: Number(data.total_amount) || 0,
+    customerEmail: data.customers?.email || '',
+    customerAddress: data.customers?.address || '',
+    lines,
+    subtotal: Number(sale?.subtotal) || 0,
+    vatAmount: Number(sale?.tax_amount) || 0,
+    vatRate: Number(sale?.tax_rate || 0) / 100,
+    total: Number(data.total_amount) || 0,
     amountPaid: Number(data.amount_paid) || 0,
     amountDue: Number(data.amount_due) || 0,
+    invoiceDate: data.issue_date,
+    invoiceNumber: data.invoice_number,
   } as any
 }
 
@@ -148,4 +168,65 @@ export async function remove(id: string) {
   
   if (error) throw error
   return { success: true }
+}
+export async function fromSalesOrder(saleId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // 1. Get the Sales Order details
+  const { data: sale, error: saleError } = await supabase
+    .from('sales')
+    .select('*')
+    .eq('id', saleId)
+    .single()
+
+  if (saleError) throw saleError
+
+  // 2. Check if an invoice already exists for this sale
+  const { data: existingInvoice } = await supabase
+    .from('invoices')
+    .select('id')
+    .eq('sale_id', saleId)
+    .single()
+
+  if (existingInvoice) {
+    throw new Error('An invoice already exists for this sales order')
+  }
+
+  // 3. Generate sequential invoice number
+  const { count } = await supabase
+    .from('invoices')
+    .select('*', { count: 'exact', head: true })
+
+  const nextNumber = (count || 0) + 1001
+  const invoiceNumber = `INV-${nextNumber}`
+
+  // 4. Create the Invoice
+  const { data: invoice, error: invoiceError } = await supabase
+    .from('invoices')
+    .insert({
+      invoice_number: invoiceNumber,
+      customer_id: sale.customer_id,
+      sale_id: sale.id,
+      issue_date: new Date().toISOString().split('T')[0],
+      due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days due
+      status: 'unpaid',
+      total_amount: sale.total,
+      tax_amount: sale.tax_amount,
+      amount_paid: 0,
+      amount_due: sale.total,
+      user_id: user?.id || sale.user_id
+    })
+    .select()
+    .single()
+
+  if (invoiceError) throw invoiceError
+
+  // 5. Update Sales Order status to 'delivered'
+  await supabase
+    .from('sales')
+    .update({ status: 'delivered' })
+    .eq('id', saleId)
+
+  return mapToCamelCase(invoice)
 }

@@ -31,8 +31,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { MoreHorizontal, Plus, Search, Eye, Trash2 } from "lucide-react";
-import { deleteSalesOrderAction, getSalesOrderByIdAction } from "./actions";
+import { deleteSalesOrderAction, getSalesOrderByIdAction, convertToInvoiceAction } from "./actions";
+import { Receipt, MoreHorizontal, Plus, Search, Eye, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { SalesOrderFormDialog } from "./sales-order-form-dialog";
 
@@ -65,6 +65,7 @@ export default function SalesClient({
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+    const [isConverting, setIsConverting] = useState(false);
 
     const updateFilters = (newQuery: string, newStatus: string) => {
         startTransition(() => {
@@ -108,7 +109,19 @@ export default function SalesClient({
             setIsLoadingDetails(false);
         }
     };
-
+    const handleConvertToInvoice = async (id: string) => {
+        setIsConverting(true);
+        try {
+            const invoice = await convertToInvoiceAction(id);
+            toast.success("Converted to invoice successfully");
+            setDetailsOpen(false);
+            router.push(`/invoices/${invoice.id}`);
+        } catch (e: any) {
+            toast.error(e.message || "Failed to convert to invoice");
+        } finally {
+            setIsConverting(false);
+        }
+    };
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -204,6 +217,13 @@ export default function SalesClient({
                                                             <Eye className="w-4 h-4 mr-2" />
                                                             {isLoadingDetails ? "Loading..." : "View Details"}
                                                         </DropdownMenuItem>
+                                                        <DropdownMenuItem 
+                                                            disabled={order.status === "paid" || isConverting}
+                                                            onClick={() => handleConvertToInvoice(order.id)}
+                                                        >
+                                                            <Receipt className="w-4 h-4 mr-2" />
+                                                            Convert to Invoice
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuSeparator />
                                                         <DropdownMenuItem
                                                             className="text-destructive"
@@ -257,6 +277,29 @@ export default function SalesClient({
 
                     {selectedOrder ? (
                         <div className="space-y-6">
+                            <div className="flex justify-end gap-2">
+                                <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    disabled={selectedOrder.status === "paid" || isConverting}
+                                    onClick={() => handleConvertToInvoice(selectedOrder.id)}
+                                >
+                                    <Receipt className="w-4 h-4 mr-2" />
+                                    {isConverting ? "Converting..." : "Convert to Invoice"}
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    onClick={() => {
+                                        handleDelete(selectedOrder.id);
+                                        setDetailsOpen(false);
+                                    }}
+                                >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                </Button>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <p className="text-muted-foreground">Customer</p>

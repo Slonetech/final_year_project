@@ -46,19 +46,20 @@ export default function InvoiceDetailsPage() {
 
   const { data: invoice, isLoading, error } = useInvoice(invoiceId);
 
-  const getStatusBadge = (status: Invoice["status"]) => {
-    const variants = {
-      draft: { variant: "secondary" as const, className: "bg-gray-100 text-gray-800" },
-      sent: { variant: "default" as const, className: "bg-blue-100 text-blue-800" },
-      paid: { variant: "default" as const, className: "bg-green-100 text-green-800" },
-      overdue: { variant: "destructive" as const, className: "bg-red-100 text-red-800" },
-      cancelled: { variant: "secondary" as const, className: "bg-gray-100 text-gray-600" },
+  const getStatusBadge = (status: string) => {
+    const variants: Record<string, { variant: "secondary" | "default" | "destructive", className: string }> = {
+      draft: { variant: "secondary", className: "bg-gray-100 text-gray-800" },
+      unpaid: { variant: "secondary", className: "bg-yellow-100 text-yellow-800" },
+      sent: { variant: "default", className: "bg-blue-100 text-blue-800" },
+      paid: { variant: "default", className: "bg-green-100 text-green-800" },
+      overdue: { variant: "destructive", className: "bg-red-100 text-red-800" },
+      cancelled: { variant: "secondary", className: "bg-gray-100 text-gray-600" },
     };
 
-    const config = variants[status];
+    const config = variants[status] || variants.draft;
     return (
       <Badge variant={config.variant} className={config.className}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status.toUpperCase()}
       </Badge>
     );
   };

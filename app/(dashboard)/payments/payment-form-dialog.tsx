@@ -79,12 +79,14 @@ interface PaymentFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   customers: any[];
+  suppliers?: any[];
 }
 
 export function PaymentFormDialog({
   open,
   onOpenChange,
   customers,
+  suppliers = [],
 }: PaymentFormDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [selectedType, setSelectedType] = useState<PaymentType>("received");
@@ -140,6 +142,9 @@ export function PaymentFormDialog({
         if (data.type === "received" && data.customerId) {
           const customer = customers?.find((c) => c.id === data.customerId);
           customerName = customer?.name;
+        } else if (data.type === "made" && data.supplierId) {
+          const supplier = suppliers?.find((s) => s.id === data.supplierId);
+          supplierName = supplier?.name;
         }
 
         const paymentData = {
@@ -173,6 +178,9 @@ export function PaymentFormDialog({
     if (selectedType === "received" && form.watch("customerId")) {
       const customer = customers?.find((c) => c.id === form.watch("customerId"));
       return customer?.name;
+    } else if (selectedType === "made" && form.watch("supplierId")) {
+      const supplier = suppliers?.find((s) => s.id === form.watch("supplierId"));
+      return supplier?.name;
     }
     return null;
   };
@@ -315,15 +323,13 @@ export function PaymentFormDialog({
                     )}
                   />
 
-                  <FormItem>
-                    <FormLabel>Paybill Number</FormLabel>
-                    <FormControl>
-                      <Input value="123456" disabled />
-                    </FormControl>
-                    <FormDescription>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Paybill Number</label>
+                    <Input value="123456" disabled />
+                    <p className="text-[0.8rem] text-muted-foreground">
                       Your company M-Pesa Paybill number
-                    </FormDescription>
-                  </FormItem>
+                    </p>
+                  </div>
                 </>
               )}
 
@@ -359,13 +365,18 @@ export function PaymentFormDialog({
                   render={({ field }) => (
                     <FormItem className={selectedMethod === "mpesa" ? "" : "col-span-2"}>
                       <FormLabel>Supplier *</FormLabel>
-                      <Select disabled onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Suppliers not implemented (Schema doesn't have supplier_id)" />
+                            <SelectValue placeholder="Select supplier" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          {suppliers?.map((supplier) => (
+                            <SelectItem key={supplier.id} value={supplier.id}>
+                              {supplier.name}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />

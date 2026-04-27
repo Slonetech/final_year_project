@@ -9,12 +9,14 @@ export async function createPurchaseOrderAction(
 ) {
   const result = await create(purchaseData, items);
   revalidatePath("/purchases");
+  revalidatePath("/");
   return result;
 }
 
 export async function deletePurchaseOrderAction(id: string) {
   const result = await remove(id);
   revalidatePath("/purchases");
+  revalidatePath("/");
   return result;
 }
 

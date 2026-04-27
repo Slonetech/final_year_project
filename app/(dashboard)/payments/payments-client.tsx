@@ -30,10 +30,12 @@ import { PaymentFormDialog } from "./payment-form-dialog";
 export default function PaymentsClient({ 
   initialPayments, 
   customers,
+  suppliers = [],
   type 
 }: { 
   initialPayments: Payment[];
   customers: any[];
+  suppliers: any[];
   type: string; 
 }) {
   const router = useRouter();
@@ -304,6 +306,7 @@ export default function PaymentsClient({
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         customers={customers}
+        suppliers={suppliers}
       />
     </div>
   );
